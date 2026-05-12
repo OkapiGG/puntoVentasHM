@@ -7,8 +7,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -39,4 +41,14 @@ public class OrdenDomicilio {
 
     @Column(length = 30)
     private String telefono;
+
+    @Column(name = "estado_entrega", nullable = false, length = 30)
+    private String estadoEntrega = "PENDIENTE";
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_repartidor")
+    private Usuario repartidor;
+
+    @Column(name = "fecha_asignacion")
+    private LocalDateTime fechaAsignacion;
 }

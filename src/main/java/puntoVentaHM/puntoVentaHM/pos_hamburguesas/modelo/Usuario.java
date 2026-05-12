@@ -46,6 +46,9 @@ public class Usuario {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Column(nullable = false)
+    private Boolean activo = true;
+
     @OneToMany(mappedBy = "usuario")
     private List<SesionCaja> sesionesCaja = new ArrayList<>();
 }

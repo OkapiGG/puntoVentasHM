@@ -47,6 +47,12 @@ public class SesionCaja {
     @Column(nullable = false, length = 30)
     private String estado;
 
+    @Column(name = "monto_declarado_cierre", precision = 10, scale = 2)
+    private BigDecimal montoDeclaradoCierre;
+
+    @Column(name = "diferencia_cierre", precision = 10, scale = 2)
+    private BigDecimal diferenciaCierre;
+
     @OneToMany(mappedBy = "sesionCaja")
     private List<MovimientoCaja> movimientosCaja = new ArrayList<>();
 

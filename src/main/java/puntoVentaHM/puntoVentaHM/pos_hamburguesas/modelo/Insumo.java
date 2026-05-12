@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,15 @@ public class Insumo {
 
     @Column(nullable = false, length = 120)
     private String nombre;
+
+    @Column(name = "unidad_medida", nullable = false, length = 30)
+    private String unidadMedida = "pieza";
+
+    @Column(name = "stock_actual", nullable = false, precision = 10, scale = 3)
+    private BigDecimal stockActual = BigDecimal.ZERO;
+
+    @Column(nullable = false)
+    private Boolean activo = true;
 
     @OneToMany(mappedBy = "insumo")
     private List<RecetaProducto> recetasProducto = new ArrayList<>();

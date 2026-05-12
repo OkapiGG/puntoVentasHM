@@ -1,0 +1,29 @@
+/* Registro de la fuente */
+@font-face {
+  font-family: 'Bangers';
+  src: url('./fonts/Bangers.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Variables de color de tu marca */
+:root {
+  --rojo-may: #d32f2f; /* El rojo del botón */
+  --amarillo-may: #ffeb3b; /* El amarillo de los bordes/detalles */
+  --crema-fondo: #fdfae5; /* El color de fondo de la izquierda */
+  --font-main: 'Bangers', system-ui;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* Bloquea el scroll en toda la ventana */
+  font-family: Arial, sans-serif; 
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}

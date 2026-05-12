@@ -12,6 +12,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +41,22 @@ public class Orden {
     @Column(nullable = false)
     private LocalDateTime fecha = LocalDateTime.now();
 
+    @Column(name = "fecha_operacion", nullable = false)
+    private LocalDate fechaOperacion = LocalDate.now();
+
+    @Column(name = "folio_dia", nullable = false)
+    private Integer folioDia = 1;
+
+    @Column(name = "tipo_orden", nullable = false, length = 20)
+    private String tipoOrden = "MOSTRADOR";
+
     @Column(nullable = false, length = 30)
     private String estado;
+
+    @Column(name = "motivo_cancelacion", length = 255)
+    private String motivoCancelacion;
+
+    private LocalDateTime fechaCancelacion;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total = BigDecimal.ZERO;

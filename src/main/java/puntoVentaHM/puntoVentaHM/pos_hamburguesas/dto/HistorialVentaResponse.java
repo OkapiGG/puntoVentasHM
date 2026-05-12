@@ -7,6 +7,7 @@ public record HistorialVentaResponse(
         Long idOrden,
         String folio,
         LocalDateTime fecha,
+        String tipoOrden,
         String metodoPago,
         BigDecimal total,
         String estado

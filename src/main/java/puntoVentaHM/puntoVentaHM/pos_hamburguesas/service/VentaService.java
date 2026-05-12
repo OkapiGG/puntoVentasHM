@@ -5,13 +5,16 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CancelacionOrdenResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CancelarOrdenRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CotizacionOrdenResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CrearOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ActualizarEstadoDomicilioRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ActualizarEstadoOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AsignarRepartidorRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.DomicilioOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.DomicilioOrdenResponse;
@@ -19,6 +22,7 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.HistorialVentaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenActivaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemModRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemModResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemPromocionResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenResponse;
@@ -29,17 +33,20 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.TicketResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.VentasDiaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.LineaOrden;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.LineaOrdenMod;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.LineaOrdenPromocion;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Modificador;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.MovimientoCaja;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Orden;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.OrdenDomicilio;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Pago;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Producto;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.RecetaModificador;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.RecetaProducto;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.SesionCaja;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Insumo;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Usuario;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.LineaOrdenRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.LineaOrdenPromocionRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.LineaOrdenModRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.ModificadorRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.MovimientoCajaRepository;
@@ -55,10 +62,14 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.security.RolSistema;
 @Service
 public class VentaService {
 
+    private static final List<String> ESTADOS_ACTIVOS = List.of("PREPARANDO", "LISTO", "EN_RUTA");
+    private static final List<String> ESTADOS_PEDIDO = List.of("PREPARANDO", "LISTO", "EN_RUTA", "ENTREGADO", "CANCELADO");
+
     private final OrdenRepository ordenRepository;
     private final OrdenDomicilioRepository ordenDomicilioRepository;
     private final LineaOrdenRepository lineaOrdenRepository;
     private final LineaOrdenModRepository lineaOrdenModRepository;
+    private final LineaOrdenPromocionRepository lineaOrdenPromocionRepository;
     private final PagoRepository pagoRepository;
     private final ProductoRepository productoRepository;
     private final ModificadorRepository modificadorRepository;
@@ -66,24 +77,30 @@ public class VentaService {
     private final MovimientoCajaRepository movimientoCajaRepository;
     private final InsumoRepository insumoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final PromocionService promocionService;
+    private final InventarioService inventarioService;
 
     public VentaService(
             OrdenRepository ordenRepository,
             OrdenDomicilioRepository ordenDomicilioRepository,
             LineaOrdenRepository lineaOrdenRepository,
             LineaOrdenModRepository lineaOrdenModRepository,
+            LineaOrdenPromocionRepository lineaOrdenPromocionRepository,
             PagoRepository pagoRepository,
             ProductoRepository productoRepository,
             ModificadorRepository modificadorRepository,
             SesionCajaRepository sesionCajaRepository,
             MovimientoCajaRepository movimientoCajaRepository,
             InsumoRepository insumoRepository,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository,
+            PromocionService promocionService,
+            InventarioService inventarioService
     ) {
         this.ordenRepository = ordenRepository;
         this.ordenDomicilioRepository = ordenDomicilioRepository;
         this.lineaOrdenRepository = lineaOrdenRepository;
         this.lineaOrdenModRepository = lineaOrdenModRepository;
+        this.lineaOrdenPromocionRepository = lineaOrdenPromocionRepository;
         this.pagoRepository = pagoRepository;
         this.productoRepository = productoRepository;
         this.modificadorRepository = modificadorRepository;
@@ -91,6 +108,34 @@ public class VentaService {
         this.movimientoCajaRepository = movimientoCajaRepository;
         this.insumoRepository = insumoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.promocionService = promocionService;
+        this.inventarioService = inventarioService;
+    }
+
+    @Transactional(readOnly = true)
+    public CotizacionOrdenResponse cotizarOrden(CrearOrdenRequest request) {
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new IllegalArgumentException("La orden debe incluir al menos un producto");
+        }
+        SesionCaja sesionCaja = sesionCajaRepository
+                .findTopByUsuarioIdUsuarioAndEstadoOrderByAperturaDesc(request.idUsuario(), "ABIERTA")
+                .orElseThrow(() -> new IllegalArgumentException("El usuario no tiene una sesion de caja abierta"));
+
+        PromocionService.ResultadoPromocion resultado = promocionService.cotizar(
+                sesionCaja.getUsuario().getNegocio().getIdNegocio(),
+                request.items()
+        );
+        BigDecimal costoEnvio = "DOMICILIO".equals(normalizarTipoOrden(request.tipoOrden()))
+                ? normalizarCostoEnvio(request.domicilio() == null ? null : request.domicilio().costoEnvio())
+                : BigDecimal.ZERO;
+
+        return new CotizacionOrdenResponse(
+                resultado.subtotalLista(),
+                costoEnvio,
+                resultado.totalDescuento(),
+                resultado.subtotalLista().subtract(resultado.totalDescuento()).add(costoEnvio),
+                resultado.getLineas().stream().map(this::mapLineaCotizada).toList()
+        );
     }
 
     @Transactional
@@ -116,12 +161,19 @@ public class VentaService {
         orden.setFechaOperacion(fechaOperacion);
         orden.setFolioDia(folioDia);
         orden.setTipoOrden(tipoOrden);
-        orden.setEstado("PENDIENTE_PAGO");
+        orden.setEstado("PREPARANDO");
         orden.setTotal(BigDecimal.ZERO);
         orden = ordenRepository.save(orden);
 
+        PromocionService.ResultadoPromocion cotizacion = promocionService.cotizar(
+                sesionCaja.getUsuario().getNegocio().getIdNegocio(),
+                request.items()
+        );
         BigDecimal total = BigDecimal.ZERO;
+        BigDecimal totalDescuentoPromocional = cotizacion.totalDescuento();
         List<OrdenItemResponse> items = new ArrayList<>();
+        Map<String, PromocionService.LineaCotizacion> cotizacionPorProducto = cotizacion.getLineas().stream()
+                .collect(java.util.stream.Collectors.toMap(PromocionService.LineaCotizacion::getClave, linea -> linea, (a, b) -> a));
 
         for (OrdenItemRequest itemRequest : request.items()) {
             if (itemRequest.cantidad() == null || itemRequest.cantidad() <= 0) {
@@ -157,9 +209,19 @@ public class VentaService {
                 ));
             }
 
-            BigDecimal subtotal = producto.getPrecio()
-                    .add(totalModificadores)
-                    .multiply(BigDecimal.valueOf(itemRequest.cantidad()));
+            String claveCotizacion = producto.getIdProducto() + ":" + modificadoresRequest.stream()
+                    .filter(Objects::nonNull)
+                    .map(OrdenItemModRequest::idModificador)
+                    .filter(Objects::nonNull)
+                    .sorted()
+                    .map(String::valueOf)
+                    .collect(java.util.stream.Collectors.joining(","));
+            PromocionService.LineaCotizacion lineaCotizada = cotizacionPorProducto.get(claveCotizacion);
+            BigDecimal precioListaUnitario = producto.getPrecio().add(totalModificadores);
+            BigDecimal descuentoPromocional = lineaCotizada == null ? BigDecimal.ZERO : lineaCotizada.descuentoTotal();
+            BigDecimal subtotal = lineaCotizada == null
+                    ? precioListaUnitario.multiply(BigDecimal.valueOf(itemRequest.cantidad()))
+                    : lineaCotizada.subtotalFinal();
             total = total.add(subtotal);
 
             LineaOrden lineaOrden = new LineaOrden();
@@ -167,7 +229,8 @@ public class VentaService {
             lineaOrden.setProducto(producto);
             lineaOrden.setCantidad(itemRequest.cantidad());
             lineaOrden.setNombreSnapshot(producto.getNombre());
-            lineaOrden.setPrecioUnitarioSnapshot(producto.getPrecio());
+            lineaOrden.setPrecioUnitarioSnapshot(precioListaUnitario);
+            lineaOrden.setDescuentoPromocionalSnapshot(descuentoPromocional);
             lineaOrden = lineaOrdenRepository.save(lineaOrden);
 
             for (OrdenItemModRequest modificadorRequest : modificadoresRequest) {
@@ -186,29 +249,48 @@ public class VentaService {
                 lineaOrdenModRepository.save(lineaOrdenMod);
             }
 
+            if (lineaCotizada != null) {
+                for (OrdenItemPromocionResponse promocion : lineaCotizada.getPromociones()) {
+                    LineaOrdenPromocion snapshotPromocion = new LineaOrdenPromocion();
+                    snapshotPromocion.setLineaOrden(lineaOrden);
+                    snapshotPromocion.setPromocionNombre(promocion.nombre());
+                    snapshotPromocion.setTipoRegla(promocion.tipoRegla());
+                    snapshotPromocion.setDescuento(promocion.descuento());
+                    snapshotPromocion.setDescripcion(promocion.descripcion());
+                    lineaOrdenPromocionRepository.save(snapshotPromocion);
+                }
+            }
+
             items.add(new OrdenItemResponse(
                     producto.getIdProducto(),
                     producto.getNombre(),
                     itemRequest.cantidad(),
-                    producto.getPrecio(),
+                    precioListaUnitario,
+                    precioListaUnitario.subtract(itemRequest.cantidad() > 0 ? descuentoPromocional.divide(BigDecimal.valueOf(itemRequest.cantidad()), 2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO),
+                    descuentoPromocional,
                     subtotal,
-                    modificadoresResponse
+                    modificadoresResponse,
+                    lineaCotizada == null ? List.of() : lineaCotizada.getPromociones()
             ));
         }
 
-        orden.setTotal(total);
-        ordenRepository.save(orden);
         DomicilioOrdenResponse domicilioResponse = null;
 
         if ("DOMICILIO".equals(tipoOrden)) {
             domicilioResponse = guardarDomicilio(orden, request.domicilio());
+            total = total.add(domicilioResponse.costoEnvio());
         }
+
+        orden.setTotal(total);
+        ordenRepository.save(orden);
 
         return new OrdenResponse(
                 orden.getIdOrden(),
                 construirFolio(orden),
                 orden.getTipoOrden(),
                 orden.getEstado(),
+                false,
+                totalDescuentoPromocional,
                 orden.getTotal(),
                 orden.getFecha(),
                 domicilioResponse,
@@ -221,7 +303,10 @@ public class VentaService {
         Orden orden = ordenRepository.findById(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
-        if ("PAGADA".equalsIgnoreCase(orden.getEstado())) {
+        if ("CANCELADO".equalsIgnoreCase(orden.getEstado())) {
+            throw new IllegalArgumentException("No puedes cobrar una orden cancelada");
+        }
+        if (tienePagoRegistrado(idOrden)) {
             throw new IllegalArgumentException("La orden ya fue pagada");
         }
 
@@ -255,13 +340,11 @@ public class VentaService {
 
         MovimientoCaja movimientoCaja = new MovimientoCaja();
         movimientoCaja.setSesionCaja(orden.getSesionCaja());
-        movimientoCaja.setTipo("INGRESO_VENTA");
+        movimientoCaja.setTipo("EFECTIVO".equals(metodo) ? "INGRESO_VENTA_EFECTIVO" : "INGRESO_VENTA_TARJETA");
         movimientoCaja.setMonto(orden.getTotal());
+        movimientoCaja.setFecha(LocalDateTime.now());
         movimientoCaja.setMotivo("Pago de orden " + orden.getIdOrden());
         movimientoCajaRepository.save(movimientoCaja);
-
-        orden.setEstado("PAGADA");
-        ordenRepository.save(orden);
 
         return new PagoResponse(
                 pago.getIdPago(),
@@ -292,19 +375,31 @@ public class VentaService {
                             ))
                             .toList();
 
-                    BigDecimal precioConExtras = lineaOrden.getPrecioUnitarioSnapshot().add(
-                            lineaOrden.getModificadores().stream()
-                                    .map(LineaOrdenMod::getPrecioExtraSnapshot)
-                                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    );
+                    BigDecimal precioConExtras = lineaOrden.getPrecioUnitarioSnapshot();
+                    BigDecimal descuentoPromocional = lineaOrden.getDescuentoPromocionalSnapshot() == null
+                            ? BigDecimal.ZERO
+                            : lineaOrden.getDescuentoPromocionalSnapshot();
+                    BigDecimal subtotal = precioConExtras
+                            .multiply(BigDecimal.valueOf(lineaOrden.getCantidad()))
+                            .subtract(descuentoPromocional);
 
                     return new OrdenItemResponse(
                             lineaOrden.getProducto().getIdProducto(),
                             lineaOrden.getNombreSnapshot(),
                             lineaOrden.getCantidad(),
+                            lineaOrden.getPrecioUnitarioSnapshot(),
                             precioConExtras,
-                            precioConExtras.multiply(BigDecimal.valueOf(lineaOrden.getCantidad())),
-                            modificadores
+                            descuentoPromocional,
+                            subtotal,
+                            modificadores,
+                            lineaOrden.getPromociones().stream()
+                                    .map(promocion -> new OrdenItemPromocionResponse(
+                                            promocion.getPromocionNombre(),
+                                            promocion.getTipoRegla(),
+                                            promocion.getDescuento(),
+                                            promocion.getDescripcion()
+                                    ))
+                                    .toList()
                     );
                 })
                 .toList();
@@ -317,6 +412,9 @@ public class VentaService {
                 orden.getSesionCaja().getUsuario().getNombre(),
                 orden.getFecha(),
                 pago.getMetodo(),
+                orden.getLineasOrden().stream()
+                        .map(linea -> linea.getDescuentoPromocionalSnapshot() == null ? BigDecimal.ZERO : linea.getDescuentoPromocionalSnapshot())
+                        .reduce(BigDecimal.ZERO, BigDecimal::add),
                 orden.getTotal(),
                 pago.getEfectivoRecibido(),
                 pago.getCambio(),
@@ -327,14 +425,16 @@ public class VentaService {
 
     @Transactional(readOnly = true)
     public List<HistorialVentaResponse> listarVentasPagadasPorUsuario(Long idUsuario) {
-        return ordenRepository.findBySesionCajaUsuarioIdUsuarioAndEstadoOrderByFechaDesc(idUsuario, "PAGADA")
+        return ordenRepository.findBySesionCajaUsuarioIdUsuarioOrderByFechaDesc(idUsuario)
                 .stream()
+                .filter(orden -> tienePagoRegistrado(orden.getIdOrden()))
                 .map(orden -> {
                     Pago pago = pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(orden.getIdOrden()).orElse(null);
                     return new HistorialVentaResponse(
                             orden.getIdOrden(),
                             construirFolio(orden),
                             orden.getFecha(),
+                            orden.getTipoOrden(),
                             pago != null ? pago.getMetodo() : "N/A",
                             orden.getTotal(),
                             orden.getEstado()
@@ -345,18 +445,9 @@ public class VentaService {
 
     @Transactional(readOnly = true)
     public List<OrdenActivaResponse> listarOrdenesActivasPorUsuario(Long idUsuario) {
-        return ordenRepository.findBySesionCajaUsuarioIdUsuarioAndEstadoInOrderByFechaDesc(idUsuario, List.of("PENDIENTE_PAGO"))
+        return ordenRepository.findBySesionCajaUsuarioIdUsuarioAndEstadoInOrderByFechaDesc(idUsuario, ESTADOS_ACTIVOS)
                 .stream()
-                .map(orden -> new OrdenActivaResponse(
-                        orden.getIdOrden(),
-                        construirFolio(orden),
-                        orden.getFecha(),
-                        orden.getTipoOrden(),
-                        orden.getTotal(),
-                        orden.getLineasOrden().stream().map(LineaOrden::getCantidad).reduce(0, Integer::sum),
-                        orden.getEstado(),
-                        mapDomicilio(orden.getOrdenDomicilio())
-                ))
+                .map(orden -> mapOrdenActiva(orden, orden.getOrdenDomicilio()))
                 .toList();
     }
 
@@ -366,13 +457,14 @@ public class VentaService {
         List<Orden> ordenesHoy = ordenRepository.findBySesionCajaUsuarioIdUsuarioAndFechaOperacionOrderByFechaDesc(idUsuario, hoy);
 
         List<HistorialVentaResponse> ventasPagadas = ordenesHoy.stream()
-                .filter(orden -> "PAGADA".equalsIgnoreCase(orden.getEstado()))
+                .filter(orden -> tienePagoRegistrado(orden.getIdOrden()))
                 .map(orden -> {
                     Pago pago = pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(orden.getIdOrden()).orElse(null);
                     return new HistorialVentaResponse(
                             orden.getIdOrden(),
                             construirFolio(orden),
                             orden.getFecha(),
+                            orden.getTipoOrden(),
                             pago != null ? pago.getMetodo() : "N/A",
                             orden.getTotal(),
                             orden.getEstado()
@@ -385,15 +477,16 @@ public class VentaService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         int cantidadCanceladas = (int) ordenesHoy.stream()
-                .filter(orden -> "CANCELADA".equalsIgnoreCase(orden.getEstado()))
+                .filter(orden -> "CANCELADO".equalsIgnoreCase(orden.getEstado()))
                 .count();
         int cantidadActivas = (int) ordenesHoy.stream()
-                .filter(orden -> "PENDIENTE_PAGO".equalsIgnoreCase(orden.getEstado()))
+                .filter(orden -> ESTADOS_ACTIVOS.contains(orden.getEstado()))
                 .count();
 
         return new VentasDiaResponse(
                 hoy,
                 totalVentas,
+                ordenesHoy.size(),
                 ventasPagadas.size(),
                 cantidadCanceladas,
                 cantidadActivas,
@@ -406,11 +499,11 @@ public class VentaService {
         Orden orden = ordenRepository.findById(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
-        if ("PAGADA".equalsIgnoreCase(orden.getEstado())) {
-            throw new IllegalArgumentException("No puedes cancelar una orden ya pagada");
-        }
-        if ("CANCELADA".equalsIgnoreCase(orden.getEstado())) {
+        if ("CANCELADO".equalsIgnoreCase(orden.getEstado())) {
             throw new IllegalArgumentException("La orden ya fue cancelada");
+        }
+        if (tienePagoRegistrado(idOrden)) {
+            throw new IllegalArgumentException("No puedes cancelar una orden ya pagada");
         }
 
         String motivo = request == null || request.motivo() == null ? "" : request.motivo().trim();
@@ -418,7 +511,7 @@ public class VentaService {
             throw new IllegalArgumentException("Debes indicar el motivo de cancelacion");
         }
 
-        orden.setEstado("CANCELADA");
+        orden.setEstado("CANCELADO");
         orden.setMotivoCancelacion(motivo);
         orden.setFechaCancelacion(LocalDateTime.now());
         ordenRepository.save(orden);
@@ -430,6 +523,26 @@ public class VentaService {
                 orden.getMotivoCancelacion(),
                 orden.getFechaCancelacion()
         );
+    }
+
+    @Transactional
+    public OrdenActivaResponse actualizarEstadoOrden(Long idOrden, ActualizarEstadoOrdenRequest request) {
+        Orden orden = ordenRepository.findById(idOrden)
+                .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
+
+        String nuevoEstado = normalizarEstadoPedido(request == null ? null : request.estado());
+        validarCambioEstado(orden, nuevoEstado);
+
+        orden.setEstado(nuevoEstado);
+        ordenRepository.save(orden);
+
+        OrdenDomicilio ordenDomicilio = orden.getOrdenDomicilio();
+        if (ordenDomicilio != null) {
+            ordenDomicilio.setEstadoEntrega(normalizarEstadoEntregaDesdePedido(orden, nuevoEstado, ordenDomicilio.getEstadoEntrega()));
+            ordenDomicilioRepository.save(ordenDomicilio);
+        }
+
+        return mapOrdenActiva(orden, ordenDomicilio);
     }
 
     @Transactional
@@ -445,6 +558,10 @@ public class VentaService {
                 .orElseThrow(() -> new IllegalArgumentException("Datos de domicilio no encontrados"));
 
         String estadoEntrega = normalizarEstadoDomicilio(request == null ? null : request.estadoEntrega());
+        validarCambioEstado(orden, estadoEntrega);
+
+        orden.setEstado(estadoEntrega);
+        ordenRepository.save(orden);
         ordenDomicilio.setEstadoEntrega(estadoEntrega);
         ordenDomicilioRepository.save(ordenDomicilio);
 
@@ -466,6 +583,11 @@ public class VentaService {
         if (request == null || request.idRepartidor() == null) {
             ordenDomicilio.setRepartidor(null);
             ordenDomicilio.setFechaAsignacion(null);
+            if ("EN_RUTA".equalsIgnoreCase(orden.getEstado())) {
+                orden.setEstado("LISTO");
+                ordenRepository.save(orden);
+                ordenDomicilio.setEstadoEntrega("LISTO");
+            }
             ordenDomicilioRepository.save(ordenDomicilio);
             return mapOrdenActiva(orden, ordenDomicilio);
         }
@@ -494,7 +616,7 @@ public class VentaService {
     public List<OrdenActivaResponse> listarColaDomiciliosPorNegocio(Long idNegocio) {
         return ordenDomicilioRepository.findByOrdenSesionCajaUsuarioNegocioIdNegocioAndOrdenEstadoInOrderByOrdenFechaDesc(
                         idNegocio,
-                        List.of("PENDIENTE_PAGO", "PAGADA")
+                        ESTADOS_ACTIVOS
                 )
                 .stream()
                 .map(ordenDomicilio -> mapOrdenActiva(ordenDomicilio.getOrden(), ordenDomicilio))
@@ -505,7 +627,7 @@ public class VentaService {
     public List<OrdenActivaResponse> listarColaDomiciliosPorRepartidor(Long idRepartidor) {
         return ordenDomicilioRepository.findByRepartidorIdUsuarioAndOrdenEstadoInOrderByOrdenFechaDesc(
                         idRepartidor,
-                        List.of("PENDIENTE_PAGO", "PAGADA")
+                        ESTADOS_ACTIVOS
                 )
                 .stream()
                 .map(ordenDomicilio -> mapOrdenActiva(ordenDomicilio.getOrden(), ordenDomicilio))
@@ -530,6 +652,14 @@ public class VentaService {
                 Long idInsumo = recetaProducto.getInsumo().getIdInsumo();
                 requeridosPorInsumo.merge(idInsumo, requerido, BigDecimal::add);
             }
+            for (LineaOrdenMod lineaOrdenMod : lineaOrden.getModificadores()) {
+                for (RecetaModificador recetaModificador : lineaOrdenMod.getModificador().getReceta()) {
+                    BigDecimal requerido = recetaModificador.getCantidad()
+                            .multiply(BigDecimal.valueOf(lineaOrden.getCantidad()));
+                    Long idInsumo = recetaModificador.getInsumo().getIdInsumo();
+                    requeridosPorInsumo.merge(idInsumo, requerido, BigDecimal::add);
+                }
+            }
         }
 
         for (java.util.Map.Entry<Long, BigDecimal> entry : requeridosPorInsumo.entrySet()) {
@@ -544,8 +674,7 @@ public class VentaService {
         for (java.util.Map.Entry<Long, BigDecimal> entry : requeridosPorInsumo.entrySet()) {
             Insumo insumo = insumoRepository.findById(entry.getKey())
                     .orElseThrow(() -> new IllegalArgumentException("Insumo no encontrado: " + entry.getKey()));
-            insumo.setStockActual(insumo.getStockActual().subtract(entry.getValue()));
-            insumoRepository.save(insumo);
+            inventarioService.registrarSalidaVenta(insumo, entry.getValue(), "Orden " + construirFolio(orden));
         }
     }
 
@@ -567,10 +696,20 @@ public class VentaService {
 
     private String normalizarEstadoDomicilio(String estadoEntrega) {
         String estado = estadoEntrega == null || estadoEntrega.trim().isBlank()
-                ? "PENDIENTE"
+                ? "PREPARANDO"
                 : estadoEntrega.trim().toUpperCase();
-        if (!List.of("PENDIENTE", "EN_RUTA", "ENTREGADO").contains(estado)) {
+        if (!List.of("PREPARANDO", "LISTO", "EN_RUTA", "ENTREGADO").contains(estado)) {
             throw new IllegalArgumentException("Estado de domicilio invalido");
+        }
+        return estado;
+    }
+
+    private String normalizarEstadoPedido(String estadoPedido) {
+        String estado = estadoPedido == null || estadoPedido.trim().isBlank()
+                ? "PREPARANDO"
+                : estadoPedido.trim().toUpperCase();
+        if (!ESTADOS_PEDIDO.contains(estado)) {
+            throw new IllegalArgumentException("Estado de pedido invalido");
         }
         return estado;
     }
@@ -583,13 +722,15 @@ public class VentaService {
         String nombreCliente = validarTexto(request.nombreCliente(), "El nombre del cliente es obligatorio");
         String direccion = validarTexto(request.direccion(), "La direccion del domicilio es obligatoria");
         String telefono = validarTexto(request.telefono(), "El telefono del cliente es obligatorio");
+        BigDecimal costoEnvio = normalizarCostoEnvio(request.costoEnvio());
 
         OrdenDomicilio ordenDomicilio = new OrdenDomicilio();
         ordenDomicilio.setOrden(orden);
         ordenDomicilio.setNombreCliente(nombreCliente);
         ordenDomicilio.setDireccion(direccion);
         ordenDomicilio.setTelefono(telefono);
-        ordenDomicilio.setEstadoEntrega("PENDIENTE");
+        ordenDomicilio.setCostoEnvio(costoEnvio);
+        ordenDomicilio.setEstadoEntrega("PREPARANDO");
         ordenDomicilioRepository.save(ordenDomicilio);
 
         return mapDomicilio(ordenDomicilio);
@@ -603,6 +744,7 @@ public class VentaService {
                 ordenDomicilio.getNombreCliente(),
                 ordenDomicilio.getDireccion(),
                 ordenDomicilio.getTelefono(),
+                ordenDomicilio.getCostoEnvio(),
                 ordenDomicilio.getEstadoEntrega(),
                 ordenDomicilio.getRepartidor() != null ? ordenDomicilio.getRepartidor().getIdUsuario() : null,
                 ordenDomicilio.getRepartidor() != null ? ordenDomicilio.getRepartidor().getNombre() : null
@@ -618,8 +760,96 @@ public class VentaService {
                 orden.getTotal(),
                 orden.getLineasOrden().stream().map(LineaOrden::getCantidad).reduce(0, Integer::sum),
                 orden.getEstado(),
+                tienePagoRegistrado(orden.getIdOrden()),
                 mapDomicilio(ordenDomicilio)
         );
+    }
+
+    private OrdenItemResponse mapLineaCotizada(PromocionService.LineaCotizacion lineaCotizada) {
+        List<OrdenItemModResponse> modificadores = lineaCotizada.getModificadores().stream()
+                .map(modificador -> new OrdenItemModResponse(
+                        modificador.getIdModificador(),
+                        modificador.getNombre(),
+                        modificador.getPrecioExtra()
+                ))
+                .toList();
+
+        BigDecimal precioListaUnitario = lineaCotizada.precioListaUnitario();
+        BigDecimal descuentoUnitario = lineaCotizada.getCantidad() > 0
+                ? lineaCotizada.descuentoTotal().divide(BigDecimal.valueOf(lineaCotizada.getCantidad()), 2, java.math.RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        return new OrdenItemResponse(
+                lineaCotizada.getProducto().getIdProducto(),
+                lineaCotizada.getProducto().getNombre(),
+                lineaCotizada.getCantidad(),
+                precioListaUnitario,
+                precioListaUnitario.subtract(descuentoUnitario),
+                lineaCotizada.descuentoTotal(),
+                lineaCotizada.subtotalFinal(),
+                modificadores,
+                lineaCotizada.getPromociones()
+        );
+    }
+
+    private BigDecimal normalizarCostoEnvio(BigDecimal costoEnvio) {
+        if (costoEnvio == null) {
+            return BigDecimal.ZERO;
+        }
+        if (costoEnvio.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El costo de envio no puede ser negativo");
+        }
+        return costoEnvio;
+    }
+
+    private void validarCambioEstado(Orden orden, String nuevoEstado) {
+        String estadoActual = normalizarEstadoPedido(orden.getEstado());
+        if ("CANCELADO".equals(estadoActual)) {
+            throw new IllegalArgumentException("La orden ya fue cancelada");
+        }
+        if ("CANCELADO".equals(nuevoEstado)) {
+            throw new IllegalArgumentException("Usa la cancelacion de pedido para marcarlo como cancelado");
+        }
+        if ("ENTREGADO".equals(estadoActual) && !"ENTREGADO".equals(nuevoEstado)) {
+            throw new IllegalArgumentException("La orden ya fue entregada");
+        }
+        if ("MOSTRADOR".equalsIgnoreCase(orden.getTipoOrden()) && "EN_RUTA".equals(nuevoEstado)) {
+            throw new IllegalArgumentException("Una orden de mostrador no puede pasar a EN_RUTA");
+        }
+        if ("PREPARANDO".equals(estadoActual) && !List.of("PREPARANDO", "LISTO").contains(nuevoEstado)) {
+            throw new IllegalArgumentException("El pedido debe pasar primero a LISTO");
+        }
+        if ("LISTO".equals(estadoActual) && "PREPARANDO".equals(nuevoEstado)) {
+            throw new IllegalArgumentException("El pedido ya no puede volver a PREPARANDO");
+        }
+        if ("EN_RUTA".equals(estadoActual) && !"ENTREGADO".equals(nuevoEstado)) {
+            throw new IllegalArgumentException("Un pedido en ruta solo puede marcarse como ENTREGADO");
+        }
+        if ("LISTO".equals(estadoActual) && "ENTREGADO".equals(nuevoEstado) && "DOMICILIO".equalsIgnoreCase(orden.getTipoOrden())) {
+            throw new IllegalArgumentException("El pedido debe pasar a EN_RUTA antes de ENTREGADO");
+        }
+        if ("DOMICILIO".equalsIgnoreCase(orden.getTipoOrden()) && "ENTREGADO".equals(nuevoEstado) && !tienePagoRegistrado(orden.getIdOrden())) {
+            throw new IllegalArgumentException("Debes cobrar el pedido antes de marcarlo como entregado");
+        }
+        if ("DOMICILIO".equalsIgnoreCase(orden.getTipoOrden()) && "EN_RUTA".equals(nuevoEstado)) {
+            OrdenDomicilio domicilio = orden.getOrdenDomicilio();
+            if (domicilio == null || domicilio.getRepartidor() == null) {
+                throw new IllegalArgumentException("Asigna un repartidor antes de marcar el pedido EN_RUTA");
+            }
+        }
+    }
+
+    private String normalizarEstadoEntregaDesdePedido(Orden orden, String nuevoEstado, String estadoActualDomicilio) {
+        if (!"DOMICILIO".equalsIgnoreCase(orden.getTipoOrden())) {
+            return estadoActualDomicilio;
+        }
+        if ("CANCELADO".equalsIgnoreCase(nuevoEstado)) {
+            return estadoActualDomicilio;
+        }
+        return normalizarEstadoDomicilio(nuevoEstado);
+    }
+
+    private boolean tienePagoRegistrado(Long idOrden) {
+        return pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(idOrden).isPresent();
     }
 
     private String validarTexto(String valor, String mensaje) {

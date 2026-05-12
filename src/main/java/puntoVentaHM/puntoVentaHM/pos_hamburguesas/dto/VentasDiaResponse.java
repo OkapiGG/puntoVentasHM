@@ -7,6 +7,7 @@ import java.util.List;
 public record VentasDiaResponse(
         LocalDate fecha,
         BigDecimal totalVentas,
+        Integer cantidadOperaciones,
         Integer cantidadVentas,
         Integer cantidadCanceladas,
         Integer cantidadActivas,

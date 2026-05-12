@@ -46,4 +46,7 @@ public class Modificador {
 
     @OneToMany(mappedBy = "modificador")
     private List<LineaOrdenMod> lineasOrdenMod = new ArrayList<>();
+
+    @OneToMany(mappedBy = "modificador")
+    private List<RecetaModificador> receta = new ArrayList<>();
 }

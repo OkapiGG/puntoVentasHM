@@ -7,6 +7,9 @@ public record InsumoResponse(
         String nombre,
         String unidadMedida,
         BigDecimal stockActual,
+        BigDecimal stockMinimo,
+        BigDecimal costoUnitario,
+        boolean stockBajo,
         Boolean activo
 ) {
 }

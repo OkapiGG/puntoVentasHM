@@ -9,6 +9,8 @@ public record OrdenResponse(
         String folio,
         String tipoOrden,
         String estado,
+        boolean pagada,
+        BigDecimal totalDescuentoPromocional,
         BigDecimal total,
         LocalDateTime fecha,
         DomicilioOrdenResponse domicilio,

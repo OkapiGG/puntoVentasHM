@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -37,6 +38,9 @@ public class MovimientoCaja {
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal monto;
+
+    @Column(nullable = false)
+    private LocalDateTime fecha = LocalDateTime.now();
 
     @Column(length = 255)
     private String motivo;

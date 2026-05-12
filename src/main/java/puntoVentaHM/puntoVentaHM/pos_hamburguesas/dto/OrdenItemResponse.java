@@ -7,8 +7,11 @@ public record OrdenItemResponse(
         Long idProducto,
         String nombre,
         Integer cantidad,
+        BigDecimal precioListaUnitario,
         BigDecimal precioUnitario,
+        BigDecimal descuentoPromocional,
         BigDecimal subtotal,
-        List<OrdenItemModResponse> modificadores
+        List<OrdenItemModResponse> modificadores,
+        List<OrdenItemPromocionResponse> promociones
 ) {
 }

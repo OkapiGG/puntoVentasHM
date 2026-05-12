@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -42,8 +43,11 @@ public class OrdenDomicilio {
     @Column(length = 30)
     private String telefono;
 
+    @Column(name = "costo_envio", nullable = false, precision = 10, scale = 2)
+    private BigDecimal costoEnvio = BigDecimal.ZERO;
+
     @Column(name = "estado_entrega", nullable = false, length = 30)
-    private String estadoEntrega = "PENDIENTE";
+    private String estadoEntrega = "PREPARANDO";
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_repartidor")

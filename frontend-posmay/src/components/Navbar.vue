@@ -219,13 +219,5 @@ onUnmounted(() => {
 
 .user-menu-container {
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 110;
-}
-
-.user-avatar-circle:hover {
-  transform: scale(1.05);
 }
 </style>

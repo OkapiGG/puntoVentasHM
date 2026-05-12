@@ -7,11 +7,13 @@ public record ProductoResponse(
         Long idProducto,
         String nombre,
         BigDecimal precio,
+        BigDecimal precioPromocional,
         String imagenUrl,
         Boolean activo,
         Boolean esPopular,
         Boolean esNuevo,
         String categoria,
-        List<ModificadorResponse> modificadores
+        List<ModificadorResponse> modificadores,
+        List<PromocionEtiquetaResponse> promociones
 ) {
 }

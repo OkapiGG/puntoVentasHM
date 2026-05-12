@@ -10,22 +10,32 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminCategoriaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminInsumoRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminModificadorRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminModificadorResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminPromocionRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminPromocionResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminProductoRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminProductoResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminUsuarioRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminUsuarioResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.InsumoResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.RecetaItemRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.RecetaItemResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Categoria;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Insumo;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Modificador;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Negocio;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Promocion;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Producto;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.RecetaModificador;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.RecetaProducto;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Usuario;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.CategoriaRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.InsumoRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.ModificadorRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.NegocioRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.PromocionRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.ProductoRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.RecetaModificadorRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.RecetaProductoRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.UsuarioRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.security.RolSistema;
 
@@ -36,23 +46,32 @@ public class AdminService {
     private final CategoriaRepository categoriaRepository;
     private final ProductoRepository productoRepository;
     private final ModificadorRepository modificadorRepository;
+    private final PromocionRepository promocionRepository;
     private final InsumoRepository insumoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RecetaProductoRepository recetaProductoRepository;
+    private final RecetaModificadorRepository recetaModificadorRepository;
 
     public AdminService(
             NegocioRepository negocioRepository,
             CategoriaRepository categoriaRepository,
             ProductoRepository productoRepository,
             ModificadorRepository modificadorRepository,
+            PromocionRepository promocionRepository,
             InsumoRepository insumoRepository,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository,
+            RecetaProductoRepository recetaProductoRepository,
+            RecetaModificadorRepository recetaModificadorRepository
     ) {
         this.negocioRepository = negocioRepository;
         this.categoriaRepository = categoriaRepository;
         this.productoRepository = productoRepository;
         this.modificadorRepository = modificadorRepository;
+        this.promocionRepository = promocionRepository;
         this.insumoRepository = insumoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.recetaProductoRepository = recetaProductoRepository;
+        this.recetaModificadorRepository = recetaModificadorRepository;
     }
 
     @Transactional(readOnly = true)
@@ -62,6 +81,7 @@ public class AdminService {
                 categoriaRepository.findByNegocioIdNegocioOrderByNombreAsc(idNegocio).stream().map(this::mapCategoria).toList(),
                 productoRepository.findByCategoriaNegocioIdNegocioOrderByNombreAsc(idNegocio).stream().map(this::mapProducto).toList(),
                 modificadorRepository.findByProductoCategoriaNegocioIdNegocioOrderByNombreAsc(idNegocio).stream().map(this::mapModificador).toList(),
+                promocionRepository.findByNegocioIdNegocioOrderByNombreAsc(idNegocio).stream().map(this::mapPromocion).toList(),
                 insumoRepository.findByNegocioIdNegocioOrderByNombreAsc(idNegocio).stream().map(this::mapInsumo).toList(),
                 usuarioRepository.findByNegocioIdNegocioOrderByNombreAsc(idNegocio).stream().map(this::mapUsuario).toList()
         );
@@ -97,14 +117,18 @@ public class AdminService {
     public AdminProductoResponse crearProducto(Long idNegocio, AdminProductoRequest request) {
         Producto producto = new Producto();
         aplicarProducto(producto, idNegocio, request);
-        return mapProducto(productoRepository.save(producto));
+        producto = productoRepository.save(producto);
+        reemplazarRecetaProducto(producto, request.receta());
+        return mapProducto(producto);
     }
 
     @Transactional
     public AdminProductoResponse actualizarProducto(Long idNegocio, Long idProducto, AdminProductoRequest request) {
         Producto producto = obtenerProducto(idNegocio, idProducto);
         aplicarProducto(producto, idNegocio, request);
-        return mapProducto(productoRepository.save(producto));
+        producto = productoRepository.save(producto);
+        reemplazarRecetaProducto(producto, request.receta());
+        return mapProducto(producto);
     }
 
     @Transactional
@@ -118,14 +142,18 @@ public class AdminService {
     public AdminModificadorResponse crearModificador(Long idNegocio, AdminModificadorRequest request) {
         Modificador modificador = new Modificador();
         aplicarModificador(modificador, idNegocio, request);
-        return mapModificador(modificadorRepository.save(modificador));
+        modificador = modificadorRepository.save(modificador);
+        reemplazarRecetaModificador(modificador, request.receta());
+        return mapModificador(modificador);
     }
 
     @Transactional
     public AdminModificadorResponse actualizarModificador(Long idNegocio, Long idModificador, AdminModificadorRequest request) {
         Modificador modificador = obtenerModificador(idNegocio, idModificador);
         aplicarModificador(modificador, idNegocio, request);
-        return mapModificador(modificadorRepository.save(modificador));
+        modificador = modificadorRepository.save(modificador);
+        reemplazarRecetaModificador(modificador, request.receta());
+        return mapModificador(modificador);
     }
 
     @Transactional
@@ -133,6 +161,27 @@ public class AdminService {
         Modificador modificador = obtenerModificador(idNegocio, idModificador);
         modificador.setActivo(false);
         modificadorRepository.save(modificador);
+    }
+
+    @Transactional
+    public AdminPromocionResponse crearPromocion(Long idNegocio, AdminPromocionRequest request) {
+        Promocion promocion = new Promocion();
+        aplicarPromocion(promocion, idNegocio, request);
+        return mapPromocion(promocionRepository.save(promocion));
+    }
+
+    @Transactional
+    public AdminPromocionResponse actualizarPromocion(Long idNegocio, Long idPromocion, AdminPromocionRequest request) {
+        Promocion promocion = obtenerPromocion(idNegocio, idPromocion);
+        aplicarPromocion(promocion, idNegocio, request);
+        return mapPromocion(promocionRepository.save(promocion));
+    }
+
+    @Transactional
+    public void eliminarPromocion(Long idNegocio, Long idPromocion) {
+        Promocion promocion = obtenerPromocion(idNegocio, idPromocion);
+        promocion.setActiva(false);
+        promocionRepository.save(promocion);
     }
 
     @Transactional
@@ -210,7 +259,64 @@ public class AdminService {
             throw new IllegalArgumentException("El stock del insumo es invalido");
         }
         insumo.setStockActual(request.stockActual());
+        insumo.setStockMinimo(request.stockMinimo() == null ? BigDecimal.ZERO : request.stockMinimo());
+        insumo.setCostoUnitario(request.costoUnitario() == null ? BigDecimal.ZERO : request.costoUnitario());
         insumo.setActivo(request.activo() == null ? true : request.activo());
+    }
+
+    private void reemplazarRecetaProducto(Producto producto, List<RecetaItemRequest> receta) {
+        recetaProductoRepository.deleteByProductoIdProducto(producto.getIdProducto());
+        if (receta == null) {
+            return;
+        }
+        for (RecetaItemRequest item : receta) {
+            if (item == null || item.idInsumo() == null || item.cantidad() == null || item.cantidad().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            RecetaProducto recetaProducto = new RecetaProducto();
+            recetaProducto.setProducto(producto);
+            recetaProducto.setInsumo(obtenerInsumo(producto.getCategoria().getNegocio().getIdNegocio(), item.idInsumo()));
+            recetaProducto.setCantidad(item.cantidad());
+            recetaProductoRepository.save(recetaProducto);
+        }
+    }
+
+    private void reemplazarRecetaModificador(Modificador modificador, List<RecetaItemRequest> receta) {
+        recetaModificadorRepository.deleteByModificadorIdModificador(modificador.getIdModificador());
+        if (receta == null) {
+            return;
+        }
+        for (RecetaItemRequest item : receta) {
+            if (item == null || item.idInsumo() == null || item.cantidad() == null || item.cantidad().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            RecetaModificador recetaModificador = new RecetaModificador();
+            recetaModificador.setModificador(modificador);
+            recetaModificador.setInsumo(obtenerInsumo(modificador.getProducto().getCategoria().getNegocio().getIdNegocio(), item.idInsumo()));
+            recetaModificador.setCantidad(item.cantidad());
+            recetaModificadorRepository.save(recetaModificador);
+        }
+    }
+
+    private void aplicarPromocion(Promocion promocion, Long idNegocio, AdminPromocionRequest request) {
+        promocion.setNegocio(validarNegocio(idNegocio));
+        promocion.setNombre(validarTexto(request.nombre(), "El nombre de la promoción es obligatorio"));
+        promocion.setDescripcion(textoOpcional(request.descripcion()));
+        promocion.setTipoRegla(validarEnCatalogo(request.tipoRegla(), List.of("PORCENTAJE", "DOS_X_UNO", "EXTRA_GRATIS", "DESCUENTO_HORARIO", "COMBO"), "Tipo de regla inválido"));
+        promocion.setTipoObjetivo(validarEnCatalogo(request.tipoObjetivo(), List.of("PRODUCTO", "CATEGORIA", "COMBO"), "Tipo de objetivo inválido"));
+        promocion.setIdsObjetivo(validarTexto(request.idsObjetivo(), "Debes indicar los IDs objetivo"));
+        promocion.setIdModificadorGratis(request.idModificadorGratis());
+        if (request.fechaInicio() == null || request.fechaFin() == null || request.fechaFin().isBefore(request.fechaInicio())) {
+            throw new IllegalArgumentException("El rango de fechas de la promoción es inválido");
+        }
+        promocion.setFechaInicio(request.fechaInicio());
+        promocion.setFechaFin(request.fechaFin());
+        promocion.setHoraInicio(request.horaInicio());
+        promocion.setHoraFin(request.horaFin());
+        promocion.setPorcentajeDescuento(request.porcentajeDescuento());
+        promocion.setMontoDescuento(request.montoDescuento());
+        promocion.setCantidadMinima(request.cantidadMinima());
+        promocion.setActiva(request.activa() == null ? true : request.activa());
     }
 
     private void aplicarUsuario(Usuario usuario, Long idNegocio, AdminUsuarioRequest request, boolean actualizacion) {
@@ -295,6 +401,18 @@ public class AdminService {
         return usuario;
     }
 
+    private Promocion obtenerPromocion(Long idNegocio, Long idPromocion) {
+        if (idPromocion == null) {
+            throw new IllegalArgumentException("La promoción es obligatoria");
+        }
+        Promocion promocion = promocionRepository.findById(idPromocion)
+                .orElseThrow(() -> new IllegalArgumentException("Promoción no encontrada"));
+        if (!promocion.getNegocio().getIdNegocio().equals(idNegocio)) {
+            throw new IllegalArgumentException("La promoción no pertenece al negocio");
+        }
+        return promocion;
+    }
+
     private String validarTexto(String valor, String mensaje) {
         if (valor == null || valor.trim().isBlank()) {
             throw new IllegalArgumentException(mensaje);
@@ -304,6 +422,14 @@ public class AdminService {
 
     private String textoOpcional(String valor) {
         return valor == null || valor.trim().isBlank() ? null : valor.trim();
+    }
+
+    private String validarEnCatalogo(String valor, List<String> catalogo, String mensaje) {
+        String normalizado = validarTexto(valor, mensaje).toUpperCase();
+        if (!catalogo.contains(normalizado)) {
+            throw new IllegalArgumentException(mensaje);
+        }
+        return normalizado;
     }
 
     private AdminCategoriaResponse mapCategoria(Categoria categoria) {
@@ -321,11 +447,13 @@ public class AdminService {
                 producto.getCategoria().getNombre(),
                 producto.getNombre(),
                 producto.getPrecio(),
+                costoRecetaProducto(producto),
                 producto.getImagenUrl(),
                 producto.getActivo(),
                 producto.getEsPopular(),
                 producto.getEsNuevo(),
-                producto.getModificadores().size()
+                producto.getModificadores().size(),
+                producto.getReceta().stream().map(this::mapRecetaProducto).toList()
         );
     }
 
@@ -336,7 +464,9 @@ public class AdminService {
                 modificador.getProducto().getNombre(),
                 modificador.getNombre(),
                 modificador.getPrecioExtra(),
-                modificador.getActivo()
+                costoRecetaModificador(modificador),
+                modificador.getActivo(),
+                modificador.getReceta().stream().map(this::mapRecetaModificador).toList()
         );
     }
 
@@ -346,7 +476,47 @@ public class AdminService {
                 insumo.getNombre(),
                 insumo.getUnidadMedida(),
                 insumo.getStockActual(),
+                insumo.getStockMinimo() == null ? BigDecimal.ZERO : insumo.getStockMinimo(),
+                insumo.getCostoUnitario() == null ? BigDecimal.ZERO : insumo.getCostoUnitario(),
+                insumo.getStockActual().compareTo(insumo.getStockMinimo() == null ? BigDecimal.ZERO : insumo.getStockMinimo()) <= 0,
                 insumo.getActivo()
+        );
+    }
+
+    private BigDecimal costoRecetaProducto(Producto producto) {
+        return producto.getReceta().stream()
+                .map(receta -> costoReceta(receta.getCantidad(), receta.getInsumo().getCostoUnitario()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal costoRecetaModificador(Modificador modificador) {
+        return modificador.getReceta().stream()
+                .map(receta -> costoReceta(receta.getCantidad(), receta.getInsumo().getCostoUnitario()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal costoReceta(BigDecimal cantidad, BigDecimal costoUnitario) {
+        return (cantidad == null ? BigDecimal.ZERO : cantidad)
+                .multiply(costoUnitario == null ? BigDecimal.ZERO : costoUnitario);
+    }
+
+    private RecetaItemResponse mapRecetaProducto(RecetaProducto receta) {
+        return new RecetaItemResponse(
+                receta.getInsumo().getIdInsumo(),
+                receta.getInsumo().getNombre(),
+                receta.getInsumo().getUnidadMedida(),
+                receta.getCantidad(),
+                costoReceta(receta.getCantidad(), receta.getInsumo().getCostoUnitario())
+        );
+    }
+
+    private RecetaItemResponse mapRecetaModificador(RecetaModificador receta) {
+        return new RecetaItemResponse(
+                receta.getInsumo().getIdInsumo(),
+                receta.getInsumo().getNombre(),
+                receta.getInsumo().getUnidadMedida(),
+                receta.getCantidad(),
+                costoReceta(receta.getCantidad(), receta.getInsumo().getCostoUnitario())
         );
     }
 
@@ -357,6 +527,26 @@ public class AdminService {
                 usuario.getRol(),
                 usuario.getAvatarUrl(),
                 usuario.getActivo()
+        );
+    }
+
+    private AdminPromocionResponse mapPromocion(Promocion promocion) {
+        return new AdminPromocionResponse(
+                promocion.getIdPromocion(),
+                promocion.getNombre(),
+                promocion.getDescripcion(),
+                promocion.getTipoRegla(),
+                promocion.getTipoObjetivo(),
+                promocion.getIdsObjetivo(),
+                promocion.getIdModificadorGratis(),
+                promocion.getFechaInicio(),
+                promocion.getFechaFin(),
+                promocion.getHoraInicio(),
+                promocion.getHoraFin(),
+                promocion.getPorcentajeDescuento(),
+                promocion.getMontoDescuento(),
+                promocion.getCantidadMinima(),
+                promocion.getActiva()
         );
     }
 }

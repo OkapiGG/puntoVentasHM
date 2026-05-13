@@ -1,11 +1,13 @@
 package puntoVentaHM.puntoVentaHM.pos_hamburguesas.service;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CategoriaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ModificadorResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ProductoResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.PromocionEtiquetaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Categoria;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Modificador;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Producto;
@@ -20,17 +22,20 @@ public class CatalogoService {
     private final ProductoRepository productoRepository;
     private final ModificadorRepository modificadorRepository;
     private final SlugService slugService;
+    private final PromocionService promocionService;
 
     public CatalogoService(
             CategoriaRepository categoriaRepository,
             ProductoRepository productoRepository,
             ModificadorRepository modificadorRepository,
-            SlugService slugService
+            SlugService slugService,
+            PromocionService promocionService
     ) {
         this.categoriaRepository = categoriaRepository;
         this.productoRepository = productoRepository;
         this.modificadorRepository = modificadorRepository;
         this.slugService = slugService;
+        this.promocionService = promocionService;
     }
 
     @Transactional(readOnly = true)
@@ -64,10 +69,16 @@ public class CatalogoService {
     }
 
     private ProductoResponse toProductoResponse(Producto producto) {
+        List<PromocionEtiquetaResponse> promociones = promocionService.listarEtiquetasProducto(
+                producto.getCategoria().getNegocio().getIdNegocio(),
+                producto,
+                LocalDateTime.now()
+        );
         return new ProductoResponse(
                 producto.getIdProducto(),
                 producto.getNombre(),
                 producto.getPrecio(),
+                promociones.isEmpty() ? producto.getPrecio() : producto.getPrecio(),
                 producto.getImagenUrl(),
                 producto.getActivo(),
                 producto.getEsPopular(),
@@ -76,7 +87,8 @@ public class CatalogoService {
                 modificadorRepository.findByProductoIdProductoAndActivoTrueOrderByNombreAsc(producto.getIdProducto())
                         .stream()
                         .map(this::toModificadorResponse)
-                        .toList()
+                        .toList(),
+                promociones
         );
     }
 

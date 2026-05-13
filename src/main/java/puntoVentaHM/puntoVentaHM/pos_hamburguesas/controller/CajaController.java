@@ -8,9 +8,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AperturaCajaRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.BitacoraCajaResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CajaResumenPeriodoResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CajaResumenUsuarioResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CierreCajaRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.MovimientoCajaRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.SesionCajaResponse;
@@ -51,6 +55,24 @@ public class CajaController {
     public SesionCajaResponse obtenerCorte(@PathVariable Long idSesionCaja, HttpServletRequest request) {
         accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
         return cajaService.obtenerCorte(idSesionCaja);
+    }
+
+    @GetMapping("/negocios/{idNegocio}/resumen-periodo")
+    public CajaResumenPeriodoResponse obtenerResumenPeriodo(@PathVariable Long idNegocio, @RequestParam(defaultValue = "DIARIO") String periodo, HttpServletRequest request) {
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        return cajaService.obtenerResumenPeriodo(idNegocio, periodo);
+    }
+
+    @GetMapping("/negocios/{idNegocio}/resumen-usuarios")
+    public java.util.List<CajaResumenUsuarioResponse> obtenerResumenUsuarios(@PathVariable Long idNegocio, @RequestParam(defaultValue = "DIARIO") String periodo, HttpServletRequest request) {
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        return cajaService.obtenerResumenPorUsuario(idNegocio, periodo);
+    }
+
+    @GetMapping("/negocios/{idNegocio}/bitacora")
+    public java.util.List<BitacoraCajaResponse> obtenerBitacora(@PathVariable Long idNegocio, @RequestParam(defaultValue = "DIARIO") String periodo, HttpServletRequest request) {
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        return cajaService.obtenerBitacora(idNegocio, periodo);
     }
 
     @PostMapping("/usuarios/{idUsuario}/apertura")

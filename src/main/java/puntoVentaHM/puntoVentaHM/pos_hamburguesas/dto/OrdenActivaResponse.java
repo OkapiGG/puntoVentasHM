@@ -11,6 +11,7 @@ public record OrdenActivaResponse(
         BigDecimal total,
         Integer cantidadItems,
         String estado,
+        boolean pagada,
         DomicilioOrdenResponse domicilio
 ) {
 }

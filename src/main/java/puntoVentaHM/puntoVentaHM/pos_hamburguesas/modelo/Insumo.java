@@ -44,9 +44,21 @@ public class Insumo {
     @Column(name = "stock_actual", nullable = false, precision = 10, scale = 3)
     private BigDecimal stockActual = BigDecimal.ZERO;
 
+    @Column(name = "stock_minimo", precision = 10, scale = 3)
+    private BigDecimal stockMinimo = BigDecimal.ZERO;
+
+    @Column(name = "costo_unitario", precision = 10, scale = 2)
+    private BigDecimal costoUnitario = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private Boolean activo = true;
 
     @OneToMany(mappedBy = "insumo")
     private List<RecetaProducto> recetasProducto = new ArrayList<>();
+
+    @OneToMany(mappedBy = "insumo")
+    private List<RecetaModificador> recetasModificador = new ArrayList<>();
+
+    @OneToMany(mappedBy = "insumo")
+    private List<MovimientoInventario> movimientosInventario = new ArrayList<>();
 }

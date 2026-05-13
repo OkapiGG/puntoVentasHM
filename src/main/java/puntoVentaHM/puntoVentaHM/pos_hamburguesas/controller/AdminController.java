@@ -18,6 +18,8 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminCategoriaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminInsumoRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminModificadorRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminModificadorResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminPromocionRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminPromocionResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminProductoRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminProductoResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminUsuarioRequest;
@@ -99,6 +101,25 @@ public class AdminController {
     public ResponseEntity<Void> eliminarModificador(@PathVariable Long idNegocio, @PathVariable Long idModificador, HttpServletRequest request) {
         accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE);
         adminService.eliminarModificador(idNegocio, idModificador);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/promociones")
+    public AdminPromocionResponse crearPromocion(@PathVariable Long idNegocio, @RequestBody AdminPromocionRequest body, HttpServletRequest request) {
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE);
+        return adminService.crearPromocion(idNegocio, body);
+    }
+
+    @PutMapping("/promociones/{idPromocion}")
+    public AdminPromocionResponse actualizarPromocion(@PathVariable Long idNegocio, @PathVariable Long idPromocion, @RequestBody AdminPromocionRequest body, HttpServletRequest request) {
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE);
+        return adminService.actualizarPromocion(idNegocio, idPromocion, body);
+    }
+
+    @DeleteMapping("/promociones/{idPromocion}")
+    public ResponseEntity<Void> eliminarPromocion(@PathVariable Long idNegocio, @PathVariable Long idPromocion, HttpServletRequest request) {
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE);
+        adminService.eliminarPromocion(idNegocio, idPromocion);
         return ResponseEntity.noContent().build();
     }
 

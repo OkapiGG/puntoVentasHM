@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.servlet.http.HttpServletRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CancelacionOrdenResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CancelarOrdenRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CotizacionOrdenResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CrearOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ActualizarEstadoDomicilioRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ActualizarEstadoOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AsignarRepartidorRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.HistorialVentaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenActivaResponse;
@@ -45,10 +47,22 @@ public class VentaController {
         return ventaService.crearOrden(request);
     }
 
+    @PostMapping("/ordenes/cotizacion")
+    public CotizacionOrdenResponse cotizarOrden(@RequestBody CrearOrdenRequest request, HttpServletRequest httpRequest) {
+        accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        return ventaService.cotizarOrden(request);
+    }
+
     @PostMapping("/ordenes/{idOrden}/cancelacion")
     public CancelacionOrdenResponse cancelarOrden(@PathVariable Long idOrden, @RequestBody CancelarOrdenRequest request, HttpServletRequest httpRequest) {
         accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
         return ventaService.cancelarOrden(idOrden, request);
+    }
+
+    @PostMapping("/ordenes/{idOrden}/estado")
+    public OrdenActivaResponse actualizarEstadoOrden(@PathVariable Long idOrden, @RequestBody ActualizarEstadoOrdenRequest request, HttpServletRequest httpRequest) {
+        accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO, RolSistema.REPARTIDOR);
+        return ventaService.actualizarEstadoOrden(idOrden, request);
     }
 
     @PostMapping("/ordenes/{idOrden}/domicilio/estado")

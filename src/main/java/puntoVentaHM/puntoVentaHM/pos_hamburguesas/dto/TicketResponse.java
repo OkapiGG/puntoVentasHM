@@ -12,6 +12,7 @@ public record TicketResponse(
         String cajero,
         LocalDateTime fecha,
         String metodoPago,
+        BigDecimal totalDescuentoPromocional,
         BigDecimal total,
         BigDecimal efectivoRecibido,
         BigDecimal cambio,

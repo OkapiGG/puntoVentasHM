@@ -12,7 +12,11 @@ public interface OrdenRepository extends JpaRepository<Orden, Long> {
 
     List<Orden> findBySesionCajaUsuarioIdUsuarioAndEstadoInOrderByFechaDesc(Long idUsuario, Collection<String> estados);
 
+    List<Orden> findBySesionCajaUsuarioIdUsuarioOrderByFechaDesc(Long idUsuario);
+
     List<Orden> findBySesionCajaUsuarioIdUsuarioAndFechaOperacionOrderByFechaDesc(Long idUsuario, LocalDate fechaOperacion);
+
+    List<Orden> findBySesionCajaUsuarioNegocioIdNegocioAndFechaCancelacionBetweenOrderByFechaCancelacionDesc(Long idNegocio, java.time.LocalDateTime inicio, java.time.LocalDateTime fin);
 
     long countBySesionCajaUsuarioNegocioIdNegocioAndFechaOperacion(Long idNegocio, LocalDate fechaOperacion);
 }

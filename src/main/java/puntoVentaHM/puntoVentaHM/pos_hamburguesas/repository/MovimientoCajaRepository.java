@@ -6,5 +6,5 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.MovimientoCaja;
 
 public interface MovimientoCajaRepository extends JpaRepository<MovimientoCaja, Long> {
 
-    List<MovimientoCaja> findBySesionCajaIdSesionCajaOrderByIdMovimientoCajaDesc(Long idSesionCaja);
+    List<MovimientoCaja> findBySesionCajaIdSesionCajaOrderByFechaDesc(Long idSesionCaja);
 }

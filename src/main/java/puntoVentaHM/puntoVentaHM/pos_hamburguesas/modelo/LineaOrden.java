@@ -48,6 +48,12 @@ public class LineaOrden {
     @Column(name = "precio_unitario_snapshot", nullable = false, precision = 10, scale = 2)
     private BigDecimal precioUnitarioSnapshot;
 
+    @Column(name = "descuento_promocional_snapshot", precision = 10, scale = 2)
+    private BigDecimal descuentoPromocionalSnapshot = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "lineaOrden")
     private List<LineaOrdenMod> modificadores = new ArrayList<>();
+
+    @OneToMany(mappedBy = "lineaOrden")
+    private List<LineaOrdenPromocion> promociones = new ArrayList<>();
 }

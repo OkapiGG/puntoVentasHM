@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Categoria;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Insumo;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Modificador;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Mesa;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Negocio;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Producto;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.RecetaProducto;
@@ -19,6 +20,7 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Usuario;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.CategoriaRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.InsumoRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.ModificadorRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.MesaRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.NegocioRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.ProductoRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.RecetaProductoRepository;
@@ -35,6 +37,7 @@ public class DataSeeder {
             CategoriaRepository categoriaRepository,
             ProductoRepository productoRepository,
             ModificadorRepository modificadorRepository,
+            MesaRepository mesaRepository,
             SesionCajaRepository sesionCajaRepository,
             InsumoRepository insumoRepository,
             RecetaProductoRepository recetaProductoRepository
@@ -46,6 +49,23 @@ public class DataSeeder {
                 nuevoNegocio.setActivo(true);
                 return negocioRepository.save(nuevoNegocio);
             });
+
+            if (negocio.getLimiteCaja() == null) {
+                negocio.setLimiteCaja(new BigDecimal("5000.00"));
+            }
+            if (negocio.getCostoEnvioDefault() == null) {
+                negocio.setCostoEnvioDefault(new BigDecimal("30.00"));
+            }
+            if (negocio.getAlertasCaja() == null) {
+                negocio.setAlertasCaja(true);
+            }
+            if (negocio.getNotificaNuevosPedidos() == null) {
+                negocio.setNotificaNuevosPedidos(true);
+            }
+            if (negocio.getNotificaReportesDiarios() == null) {
+                negocio.setNotificaReportesDiarios(false);
+            }
+            negocio = negocioRepository.save(negocio);
 
             Usuario usuario = usuarioRepository.findByNombreIgnoreCase("alan").orElseGet(Usuario::new);
             usuario.setNegocio(negocio);
@@ -128,6 +148,16 @@ public class DataSeeder {
                 crearRecetaSimple(recetaProductoRepository, nuggets, insumos.get("Nugget"));
                 crearRecetaSimple(recetaProductoRepository, coca, insumos.get("Refresco"));
                 crearRecetaSimple(recetaProductoRepository, malteada, insumos.get("Base malteada vainilla"));
+            }
+
+            if (mesaRepository.findByNegocioIdNegocioOrderByNumeroAsc(negocio.getIdNegocio()).isEmpty()) {
+                for (int numero = 1; numero <= 12; numero++) {
+                    Mesa mesa = new Mesa();
+                    mesa.setNegocio(negocio);
+                    mesa.setNumero(numero);
+                    mesa.setEstado("LIBRE");
+                    mesaRepository.save(mesa);
+                }
             }
         };
     }

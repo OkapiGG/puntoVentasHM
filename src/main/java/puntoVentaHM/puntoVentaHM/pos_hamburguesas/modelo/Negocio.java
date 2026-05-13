@@ -33,6 +33,21 @@ public class Negocio {
     @Column(nullable = false)
     private Boolean activo = true;
 
+    @Column(name = "limite_caja", nullable = false)
+    private java.math.BigDecimal limiteCaja = new java.math.BigDecimal("5000.00");
+
+    @Column(name = "costo_envio_default", nullable = false)
+    private java.math.BigDecimal costoEnvioDefault = new java.math.BigDecimal("30.00");
+
+    @Column(name = "alertas_caja", nullable = false)
+    private Boolean alertasCaja = true;
+
+    @Column(name = "notifica_nuevos_pedidos", nullable = false)
+    private Boolean notificaNuevosPedidos = true;
+
+    @Column(name = "notifica_reportes_diarios", nullable = false)
+    private Boolean notificaReportesDiarios = false;
+
     @OneToMany(mappedBy = "negocio")
     private List<Usuario> usuarios = new ArrayList<>();
 
@@ -41,4 +56,7 @@ public class Negocio {
 
     @OneToMany(mappedBy = "negocio")
     private List<Insumo> insumos = new ArrayList<>();
+
+    @OneToMany(mappedBy = "negocio")
+    private List<Mesa> mesas = new ArrayList<>();
 }

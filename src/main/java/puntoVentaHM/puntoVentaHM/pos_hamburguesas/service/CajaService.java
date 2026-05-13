@@ -56,7 +56,7 @@ public class CajaService {
 
     @Transactional(readOnly = true)
     public SesionCajaResponse obtenerSesionActual(Long idUsuario) {
-        return sesionCajaRepository.findTopByUsuarioIdUsuarioOrderByAperturaDesc(idUsuario)
+        return sesionCajaRepository.findTopByUsuarioIdUsuarioAndEstadoOrderByAperturaDesc(idUsuario, "ABIERTA")
                 .map(sesionCaja -> construirRespuesta(sesionCaja, null))
                 .orElse(null);
     }

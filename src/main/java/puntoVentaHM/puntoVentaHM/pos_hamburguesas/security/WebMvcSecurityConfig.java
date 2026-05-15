@@ -1,0 +1,22 @@
+package puntoVentaHM.puntoVentaHM.pos_hamburguesas.security;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebMvcSecurityConfig implements WebMvcConfigurer {
+
+    private final TenantInterceptor tenantInterceptor;
+
+    public WebMvcSecurityConfig(TenantInterceptor tenantInterceptor) {
+        this.tenantInterceptor = tenantInterceptor;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(tenantInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/api/auth/login", "/api/auth/logout");
+    }
+}

@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { useShift } from '../context/ShiftContext';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -10,10 +11,13 @@ import {
   Layers,
   Tag,
   DollarSign,
+  ClipboardList,
   FileText,
+  History,
   Settings,
   LogOut,
   Clock,
+  ChefHat,
 } from 'lucide-react';
 
 interface MainLayoutProps {
@@ -25,21 +29,31 @@ export function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { settings } = useSettings();
+  const { currentShift } = useShift();
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: null },
-    { icon: ShoppingCart, label: 'Nuevo Pedido', path: '/pos', roles: null },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['admin', 'manager', 'cashier', 'delivery'] },
+    { icon: ShoppingCart, label: 'Nuevo Pedido', path: '/pos', roles: ['admin', 'manager', 'cashier'] },
     { icon: Table2, label: 'Mesas', path: '/tables', roles: ['admin', 'manager', 'cashier'] },
+    { icon: ClipboardList, label: 'Órdenes', path: '/orders', roles: ['admin', 'manager', 'cashier'] },
+    { icon: ChefHat, label: 'Cocina', path: '/kitchen', roles: ['admin', 'manager', 'cook'] },
     { icon: Package, label: 'Productos', path: '/products', roles: ['admin', 'manager'] },
     { icon: Layers, label: 'Combos', path: '/combos', roles: ['admin', 'manager'] },
     { icon: Tag, label: 'Promociones', path: '/promotions', roles: ['admin', 'manager'] },
-    { icon: Clock, label: 'Turnos', path: '/shifts', roles: null },
-    { icon: DollarSign, label: 'Caja', path: '/cash-register', roles: null },
+    { icon: Clock, label: 'Turnos', path: '/shifts', roles: ['admin', 'manager', 'cashier', 'delivery', 'cook'] },
+    { icon: DollarSign, label: 'Caja', path: '/cash-register', roles: ['admin', 'manager', 'cashier'] },
+    { icon: History, label: 'Historial', path: '/sales-history', roles: ['admin', 'manager', 'cashier'] },
     { icon: FileText, label: 'Reportes', path: '/reports', roles: ['admin', 'manager'] },
     { icon: Settings, label: 'Configuración', path: '/settings', roles: ['admin', 'manager'] },
   ].filter((item) => !item.roles || (user?.role && item.roles.includes(user.role)));
 
   const handleLogout = () => {
+    if (currentShift?.status === 'open') {
+      const confirmar = window.confirm(
+        'Tu turno sigue abierto. Podrás continuar cerrándolo al volver a iniciar sesión. ¿Cerrar sesión de todos modos?'
+      );
+      if (!confirmar) return;
+    }
     logout();
     navigate('/');
   };

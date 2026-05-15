@@ -14,6 +14,7 @@ public record SesionCajaResumenResponse(
         BigDecimal totalVentas,
         BigDecimal totalVentasEfectivo,
         BigDecimal totalVentasTarjeta,
+        BigDecimal totalVentasTransferencia,
         BigDecimal totalIngresosManuales,
         BigDecimal totalRetiros,
         BigDecimal totalRetirosSeguridad,

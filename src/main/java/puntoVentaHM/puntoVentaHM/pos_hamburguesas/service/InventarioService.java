@@ -125,6 +125,24 @@ public class InventarioService {
         movimientoInventarioRepository.save(movimiento);
     }
 
+    public void registrarReversionCancelacion(Insumo insumo, BigDecimal cantidad, String referencia) {
+        BigDecimal stockAnterior = insumo.getStockActual();
+        BigDecimal stockResultante = stockAnterior.add(cantidad);
+        insumo.setStockActual(stockResultante);
+        insumoRepository.save(insumo);
+
+        MovimientoInventario movimiento = new MovimientoInventario();
+        movimiento.setInsumo(insumo);
+        movimiento.setTipo("REVERSION_CANCELACION");
+        movimiento.setCantidad(cantidad);
+        movimiento.setStockAnterior(stockAnterior);
+        movimiento.setStockResultante(stockResultante);
+        movimiento.setFecha(LocalDateTime.now());
+        movimiento.setMotivo("Reversión por cancelación de orden");
+        movimiento.setReferencia(referencia);
+        movimientoInventarioRepository.save(movimiento);
+    }
+
     private InsumoResponse mapInsumo(Insumo insumo) {
         BigDecimal stockMinimo = insumo.getStockMinimo() == null ? BigDecimal.ZERO : insumo.getStockMinimo();
         return new InsumoResponse(

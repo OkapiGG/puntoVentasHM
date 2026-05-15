@@ -17,8 +17,9 @@ export function LoginPage() {
     setError('');
     setLoading(true);
 
-    if (await login(username, password)) {
-      navigate('/dashboard');
+    const loggedUser = await login(username, password);
+    if (loggedUser) {
+      navigate(loggedUser.role === 'cook' ? '/kitchen' : '/dashboard');
     } else {
       setError('Usuario o contraseña incorrectos');
     }

@@ -7,6 +7,7 @@ export interface StoredSession {
   backendRole: string;
   idNegocio: number;
   avatarUrl?: string | null;
+  token?: string;
 }
 
 export function loadStoredSession(): StoredSession | null {
@@ -52,14 +53,20 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
     headers.set('Content-Type', 'application/json');
   }
 
-  if (!options.skipAuth && session?.idUsuario) {
-    headers.set('X-User-Id', String(session.idUsuario));
+  if (!options.skipAuth && session?.token) {
+    headers.set('Authorization', `Bearer ${session.token}`);
   }
 
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api${path}`, {
     ...options,
     headers,
   });
+
+  if (response.status === 401) {
+    saveStoredSession(null);
+    const errorText = await response.text();
+    throw new Error(errorText || 'Sesión expirada');
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

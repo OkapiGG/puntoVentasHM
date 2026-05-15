@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { MainLayout } from '../components/MainLayout';
 import { usePOS, CartItem } from '../context/POSContext';
 import { useShift } from '../context/ShiftContext';
@@ -203,12 +203,21 @@ function printTicket(order: CompletedOrder) {
   }, 250);
 }
 
+interface ExistingOrderState {
+  idOrden: number;
+  folio: string;
+  tipoOrden: 'MOSTRADOR' | 'DOMICILIO';
+  total: number;
+}
+
 export function CheckoutPage() {
   const { cart, clearCart } = usePOS();
-  const { currentShift } = useShift();
+  const { currentShift, refreshShiftData, loadPeriodSummary } = useShift();
   const { user } = useAuth();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const location = useLocation();
+  const existingOrder = (location.state as { existingOrder?: ExistingOrderState } | null)?.existingOrder ?? null;
 
   const [step, setStep] = useState<'type' | 'payment' | 'ticket'>('type');
   const [completedOrder, setCompletedOrder] = useState<CompletedOrder | null>(null);
@@ -221,12 +230,38 @@ export function CheckoutPage() {
     direccion: '',
     telefono: '',
   });
+  const [selectedTableId, setSelectedTableId] = useState('');
+  const [tables, setTables] = useState<Array<{ idMesa: number; numero: number; estado: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!currentShift) navigate('/shifts', { replace: true });
   }, [currentShift, navigate]);
+
+  useEffect(() => {
+    if (existingOrder) {
+      setOrderType(existingOrder.tipoOrden === 'DOMICILIO' ? 'delivery' : 'dine-in');
+      setStep('payment');
+    }
+  }, [existingOrder]);
+
+  useEffect(() => {
+    const loadTables = async () => {
+      if (!user?.idNegocio || orderType !== 'dine-in') {
+        setTables([]);
+        if (orderType !== 'dine-in') {
+          setSelectedTableId('');
+        }
+        return;
+      }
+      const response = await apiRequest<Array<{ idMesa: number; numero: number; estado: string }>>(
+        `/mesas/negocios/${user.idNegocio}`
+      );
+      setTables(response.filter((table) => table.estado === 'LIBRE' || String(table.idMesa) === selectedTableId));
+    };
+    void loadTables();
+  }, [orderType, selectedTableId, user?.idNegocio]);
 
   const subtotal = useMemo(
     () =>
@@ -239,53 +274,96 @@ export function CheckoutPage() {
   );
 
   const deliveryFee = orderType === 'delivery' ? settings.deliveryFee : 0;
-  const visualTotal = subtotal + deliveryFee;
+  const visualTotal = existingOrder ? existingOrder.total : subtotal + deliveryFee;
   const received = parseFloat(amountReceived) || 0;
   const totalInCurrency = visualTotal / exchangeRates[currency];
   const receivedInMXN = received * exchangeRates[currency];
   const changeInMXN = receivedInMXN - visualTotal;
+
+  const buildOrderPayload = () => ({
+    idUsuario: user!.idUsuario,
+    tipoOrden: mapOrderType(orderType!),
+    idMesa: orderType === 'dine-in' ? Number(selectedTableId) : null,
+    domicilio:
+      orderType === 'delivery'
+        ? {
+            ...deliveryData,
+            costoEnvio: deliveryFee,
+          }
+        : null,
+    items: cart.map((item: CartItem) => ({
+      idProducto: item.product.id,
+      cantidad: item.quantity,
+      modificadores: item.extras.map((extra) => ({
+        idModificador: extra.id,
+      })),
+    })),
+  });
+
+  const validateOrderInputs = () => {
+    if (orderType === 'delivery') {
+      if (!deliveryData.nombreCliente || !deliveryData.direccion || !deliveryData.telefono) {
+        setError('Completa los datos del domicilio.');
+        return false;
+      }
+      const digits = deliveryData.telefono.replace(/\D/g, '');
+      if (digits.length < 10 || digits.length > 15) {
+        setError('El teléfono debe tener entre 10 y 15 dígitos.');
+        return false;
+      }
+    }
+    if (orderType === 'dine-in' && !selectedTableId) {
+      setError('Selecciona una mesa para consumir en local.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSendToKitchen = async () => {
+    if (!orderType || !user) return;
+    if (!validateOrderInputs()) return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      await apiRequest<OrderResponseApi>('/ventas/ordenes', {
+        method: 'POST',
+        body: JSON.stringify(buildOrderPayload()),
+      });
+      clearCart();
+      setSelectedTableId('');
+      await refreshShiftData();
+      navigate('/orders');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'No fue posible enviar la orden a cocina');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleCompleteOrder = async () => {
     if (!orderType || !paymentMethod || !user) {
       return;
     }
 
-    if (orderType === 'delivery') {
-      if (!deliveryData.nombreCliente || !deliveryData.direccion || !deliveryData.telefono) {
-        setError('Completa los datos del domicilio.');
-        return;
-      }
+    if (!existingOrder && !validateOrderInputs()) {
+      return;
     }
 
     setSubmitting(true);
     setError('');
 
     try {
-      const orderPayload = {
-        idUsuario: user.idUsuario,
-        tipoOrden: mapOrderType(orderType),
-        domicilio:
-          orderType === 'delivery'
-            ? {
-                ...deliveryData,
-                costoEnvio: deliveryFee,
-              }
-            : null,
-        items: cart.map((item: CartItem) => ({
-          idProducto: item.product.id,
-          cantidad: item.quantity,
-          modificadores: item.extras.map((extra) => ({
-            idModificador: extra.id,
-          })),
-        })),
-      };
+      const idOrden = existingOrder
+        ? existingOrder.idOrden
+        : (
+            await apiRequest<OrderResponseApi>('/ventas/ordenes', {
+              method: 'POST',
+              body: JSON.stringify(buildOrderPayload()),
+            })
+          ).idOrden;
 
-      const order = await apiRequest<OrderResponseApi>('/ventas/ordenes', {
-        method: 'POST',
-        body: JSON.stringify(orderPayload),
-      });
-
-      const payment = await apiRequest<PaymentResponseApi>(`/ventas/ordenes/${order.idOrden}/pago`, {
+      const payment = await apiRequest<PaymentResponseApi>(`/ventas/ordenes/${idOrden}/pago`, {
         method: 'POST',
         body: JSON.stringify({
           metodo:
@@ -295,10 +373,13 @@ export function CheckoutPage() {
               ? 'TARJETA'
               : 'TRANSFERENCIA',
           efectivoRecibido: paymentMethod === 'cash' ? receivedInMXN : null,
+          cambioSolicitado: paymentMethod === 'cash' ? Math.max(changeInMXN, 0) : null,
         }),
       });
 
-      const ticket = await apiRequest<TicketResponseApi>(`/ventas/ordenes/${order.idOrden}/ticket`);
+      const ticket = await apiRequest<TicketResponseApi>(`/ventas/ordenes/${idOrden}/ticket`);
+      await refreshShiftData();
+      await loadPeriodSummary();
 
       setCompletedOrder({
         id: ticket.idOrden,
@@ -318,6 +399,7 @@ export function CheckoutPage() {
       });
 
       clearCart();
+      setSelectedTableId('');
       setStep('ticket');
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No fue posible completar la venta');
@@ -513,6 +595,29 @@ export function CheckoutPage() {
             </div>
           )}
 
+          {orderType === 'dine-in' && (
+            <div className="mb-8 p-6 bg-white rounded-xl shadow-md space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mesa</label>
+                <select
+                  value={selectedTableId}
+                  onChange={(e) => setSelectedTableId(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                >
+                  <option value="">Selecciona una mesa libre</option>
+                  {tables.map((table) => (
+                    <option key={table.idMesa} value={table.idMesa}>
+                      Mesa {table.numero}
+                    </option>
+                  ))}
+                </select>
+                {tables.length === 0 && (
+                  <p className="mt-2 text-sm text-amber-600">No hay mesas libres disponibles.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-xl shadow-md p-6 mb-6">
             <h3 className="font-semibold text-gray-800 mb-4">Resumen del Pedido</h3>
             <div className="space-y-2">
@@ -535,13 +640,22 @@ export function CheckoutPage() {
 
           {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-          <button
-            onClick={() => orderType && setStep('payment')}
-            disabled={!orderType}
-            className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white py-4 rounded-xl font-semibold hover:from-orange-600 hover:to-yellow-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Continuar a Pago
-          </button>
+          <div className="flex flex-col md:flex-row gap-3">
+            <button
+              onClick={() => void handleSendToKitchen()}
+              disabled={!orderType || submitting}
+              className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? 'Enviando...' : 'Enviar a cocina (pagar al final)'}
+            </button>
+            <button
+              onClick={() => orderType && setStep('payment')}
+              disabled={!orderType || submitting}
+              className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cobrar ahora
+            </button>
+          </div>
         </div>
       </MainLayout>
     );
@@ -550,13 +664,20 @@ export function CheckoutPage() {
   return (
     <MainLayout>
       <div className="p-8 max-w-4xl mx-auto">
-        <button onClick={() => setStep('type')} className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-6">
+        <button
+          onClick={() => (existingOrder ? navigate('/orders') : setStep('type'))}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-6"
+        >
           <ArrowLeft className="w-5 h-5" />
           Volver
         </button>
 
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Método de Pago</h1>
-        <p className="text-gray-600 mb-8">Selecciona cómo se realizará el pago</p>
+        <p className="text-gray-600 mb-8">
+          {existingOrder
+            ? `Cobrando orden ${existingOrder.folio}`
+            : 'Selecciona cómo se realizará el pago'}
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {([
@@ -623,18 +744,22 @@ export function CheckoutPage() {
         <div className="bg-white rounded-xl shadow-md p-6 mb-6">
           <h3 className="font-semibold text-gray-800 mb-4">Resumen del Pedido</h3>
           <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Subtotal:</span>
-              <span className="font-semibold">${subtotal.toFixed(2)}</span>
-            </div>
-            {deliveryFee > 0 && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Envío:</span>
-                <span className="font-semibold">${deliveryFee.toFixed(2)}</span>
-              </div>
+            {!existingOrder && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                </div>
+                {deliveryFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Envío:</span>
+                    <span className="font-semibold">${deliveryFee.toFixed(2)}</span>
+                  </div>
+                )}
+              </>
             )}
             <div className="border-t pt-2 flex justify-between text-xl font-bold">
-              <span>Total visual:</span>
+              <span>{existingOrder ? 'Total a cobrar:' : 'Total visual:'}</span>
               <span className="text-orange-600">${visualTotal.toFixed(2)}</span>
             </div>
           </div>

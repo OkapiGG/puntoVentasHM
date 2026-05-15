@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { apiRequest, loadStoredSession, saveStoredSession, type StoredSession } from '../lib/api';
 
-export type UserRole = 'admin' | 'manager' | 'cashier' | 'delivery';
+export type UserRole = 'admin' | 'manager' | 'cashier' | 'delivery' | 'cook';
 
 export interface User extends StoredSession {
   username: string;
@@ -13,11 +13,12 @@ interface LoginResponse {
   rol: string;
   idNegocio: number;
   avatarUrl?: string | null;
+  token: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<User | null>;
   logout: () => void;
   validatePassword: (username: string, password: string) => Promise<boolean>;
 }
@@ -34,6 +35,8 @@ function mapBackendRole(backendRole: string): UserRole {
       return 'cashier';
     case 'REPARTIDOR':
       return 'delivery';
+    case 'COCINERO':
+      return 'cook';
     default:
       return 'cashier';
   }
@@ -48,6 +51,7 @@ function mapLoginResponse(response: LoginResponse): User {
     backendRole: response.rol,
     idNegocio: response.idNegocio,
     avatarUrl: response.avatarUrl,
+    token: response.token,
   };
 }
 
@@ -66,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<User | null> => {
     try {
       const response = await apiRequest<LoginResponse>('/auth/login', {
         method: 'POST',
@@ -86,10 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         backendRole: nextUser.backendRole,
         idNegocio: nextUser.idNegocio,
         avatarUrl: nextUser.avatarUrl,
+        token: nextUser.token,
       });
-      return true;
+      return nextUser;
     } catch {
-      return false;
+      return null;
     }
   };
 
@@ -111,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // Notificar al backend (best-effort) para revocar el token.
+    void apiRequest('/auth/logout', { method: 'POST' }).catch(() => {});
     setUser(null);
     saveStoredSession(null);
   };

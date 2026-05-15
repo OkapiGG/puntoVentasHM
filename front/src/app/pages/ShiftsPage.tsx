@@ -28,7 +28,7 @@ export function ShiftsPage() {
 
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [expandedShift, setExpandedShift] = useState<string | null>(null);
+  const [expandedShift, setExpandedShift] = useState<number | null>(null);
 
   const [openPassword, setOpenPassword] = useState('');
   const [openPasswordError, setOpenPasswordError] = useState(false);
@@ -58,9 +58,10 @@ export function ShiftsPage() {
 
   const parsedFinal = parseFloat(finalAmount) || 0;
   const difference = parsedFinal - expectedAmount;
+  const isCook = user?.role === 'cook';
 
   const handleOpenShift = async () => {
-    const amount = parseFloat(openForm.initialAmount);
+    const amount = isCook ? 0 : parseFloat(openForm.initialAmount);
     if (!openForm.employeeName || isNaN(amount) || amount < 0) return;
     setOpenErrorMessage('');
     if (!(await validatePassword(user?.username ?? '', openPassword))) {
@@ -79,7 +80,7 @@ export function ShiftsPage() {
   };
 
   const handleCloseShift = async () => {
-    if (!finalAmount) return;
+    if (!isCook && !finalAmount) return;
     setCloseErrorMessage('');
     if (!(await validatePassword(user?.username ?? '', closePassword))) {
       setClosePasswordError(true);
@@ -143,30 +144,34 @@ export function ShiftsPage() {
                   </span>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-green-100 text-sm">Fondo inicial</p>
-                <p className="text-3xl font-bold">${currentShift.initialAmount.toFixed(2)}</p>
-              </div>
+              {!isCook && (
+                <div className="text-right">
+                  <p className="text-green-100 text-sm">Fondo inicial</p>
+                  <p className="text-3xl font-bold">${currentShift.initialAmount.toFixed(2)}</p>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-green-400/50">
-              <div className="text-center">
-                <p className="text-green-100 text-xs mb-1">Ventas efectivo</p>
-                <p className="text-xl font-bold">${salesCash.toFixed(2)}</p>
+            {!isCook && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-green-400/50">
+                <div className="text-center">
+                  <p className="text-green-100 text-xs mb-1">Ventas efectivo</p>
+                  <p className="text-xl font-bold">${salesCash.toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-green-100 text-xs mb-1">Ventas tarjeta</p>
+                  <p className="text-xl font-bold">${salesCard.toFixed(2)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-green-100 text-xs mb-1">Transferencias</p>
+                  <p className="text-xl font-bold">${salesTransfer.toFixed(2)}</p>
+                </div>
+                <div className="text-center border-l border-green-400/50">
+                  <p className="text-green-100 text-xs mb-1">Total ventas</p>
+                  <p className="text-2xl font-bold">${totalSales.toFixed(2)}</p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-green-100 text-xs mb-1">Ventas tarjeta</p>
-                <p className="text-xl font-bold">${salesCard.toFixed(2)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-green-100 text-xs mb-1">Transferencias</p>
-                <p className="text-xl font-bold">${salesTransfer.toFixed(2)}</p>
-              </div>
-              <div className="text-center border-l border-green-400/50">
-                <p className="text-green-100 text-xs mb-1">Total ventas</p>
-                <p className="text-2xl font-bold">${totalSales.toFixed(2)}</p>
-              </div>
-            </div>
+            )}
 
             <div className="flex gap-3 mt-6">
               <button
@@ -222,8 +227,11 @@ export function ShiftsPage() {
                 return (
                   <div key={shift.id}>
                     <button
-                      onClick={() => setExpandedShift(isExpanded ? null : shift.id)}
-                      className="w-full text-left px-6 py-4 hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        if (isCook) return;
+                        setExpandedShift(isExpanded ? null : shift.id);
+                      }}
+                      className={`w-full text-left px-6 py-4 transition-colors ${isCook ? 'cursor-default' : 'hover:bg-gray-50'}`}
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4 min-w-0">
@@ -241,39 +249,43 @@ export function ShiftsPage() {
                         </div>
 
                         <div className="flex items-center gap-6 flex-shrink-0">
-                          <div className="text-right hidden sm:block">
-                            <p className="text-xs text-gray-400">Total ventas</p>
-                            <p className="font-semibold text-gray-700">${shift.totalSales.toFixed(2)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-400">Diferencia</p>
-                            <p
-                              className={`font-bold text-sm ${
-                                diff > 0
-                                  ? 'text-green-600'
-                                  : diff < 0
-                                  ? 'text-red-600'
-                                  : 'text-gray-500'
-                              }`}
-                            >
-                              {diff >= 0 ? '+' : ''}${diff.toFixed(2)}
-                              <span className="text-xs font-normal ml-1">
-                                {diff > 0 ? 'sobrante' : diff < 0 ? 'faltante' : 'exacto'}
-                              </span>
-                            </p>
-                          </div>
-                          {isExpanded ? (
+                          {!isCook && (
+                            <>
+                              <div className="text-right hidden sm:block">
+                                <p className="text-xs text-gray-400">Total ventas</p>
+                                <p className="font-semibold text-gray-700">${shift.totalSales.toFixed(2)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-400">Diferencia</p>
+                                <p
+                                  className={`font-bold text-sm ${
+                                    diff > 0
+                                      ? 'text-green-600'
+                                      : diff < 0
+                                      ? 'text-red-600'
+                                      : 'text-gray-500'
+                                  }`}
+                                >
+                                  {diff >= 0 ? '+' : ''}${diff.toFixed(2)}
+                                  <span className="text-xs font-normal ml-1">
+                                    {diff > 0 ? 'sobrante' : diff < 0 ? 'faltante' : 'exacto'}
+                                  </span>
+                                </p>
+                              </div>
+                            </>
+                          )}
+                          {!isCook && (isExpanded ? (
                             <ChevronUp className="w-4 h-4 text-gray-400" />
                           ) : (
                             <ChevronDown className="w-4 h-4 text-gray-400" />
-                          )}
+                          ))}
                         </div>
                       </div>
                     </button>
 
-                    {isExpanded && (
+                    {isExpanded && !isCook && (
                       <div className="px-6 pb-5 bg-gray-50 border-t border-gray-100">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
                           <div className="bg-white rounded-xl p-4 shadow-sm">
                             <p className="text-xs text-gray-400 mb-1">Fondo inicial</p>
                             <p className="text-lg font-bold text-gray-800">
@@ -287,10 +299,12 @@ export function ShiftsPage() {
                             </p>
                           </div>
                           <div className="bg-white rounded-xl p-4 shadow-sm">
-                            <p className="text-xs text-gray-400 mb-1">Tarjeta / Transf.</p>
-                            <p className="text-lg font-bold text-blue-600">
-                              ${(shift.salesCard + shift.salesTransfer).toFixed(2)}
-                            </p>
+                            <p className="text-xs text-gray-400 mb-1">Tarjeta</p>
+                            <p className="text-lg font-bold text-blue-600">${shift.salesCard.toFixed(2)}</p>
+                          </div>
+                          <div className="bg-white rounded-xl p-4 shadow-sm">
+                            <p className="text-xs text-gray-400 mb-1">Transferencia</p>
+                            <p className="text-lg font-bold text-cyan-600">${shift.salesTransfer.toFixed(2)}</p>
                           </div>
                           <div className="bg-white rounded-xl p-4 shadow-sm">
                             <p className="text-xs text-gray-400 mb-1">Retiros</p>
@@ -375,36 +389,40 @@ export function ShiftsPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rol / Puesto
-                </label>
-                <select
-                  value={openForm.employeeRole}
-                  onChange={(e) => setOpenForm((f) => ({ ...f, employeeRole: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-                >
-                  <option value="cashier">Cajero</option>
-                  <option value="manager">Gerente</option>
-                  <option value="supervisor">Encargado</option>
-                  <option value="waiter">Mesero</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              </div>
+              {!isCook && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rol / Puesto
+                  </label>
+                  <select
+                    value={openForm.employeeRole}
+                    onChange={(e) => setOpenForm((f) => ({ ...f, employeeRole: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                  >
+                    <option value="cashier">Cajero</option>
+                    <option value="manager">Gerente</option>
+                    <option value="supervisor">Encargado</option>
+                    <option value="waiter">Mesero</option>
+                    <option value="admin">Administrador</option>
+                  </select>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Fondo de caja inicial ($)
-                </label>
-                <input
-                  type="number"
-                  value={openForm.initialAmount}
-                  onChange={(e) => setOpenForm((f) => ({ ...f, initialAmount: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
-                  placeholder="0.00"
-                  min="0"
-                />
-              </div>
+              {!isCook && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fondo de caja inicial ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={openForm.initialAmount}
+                    onChange={(e) => setOpenForm((f) => ({ ...f, initialAmount: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                    placeholder="0.00"
+                    min="0"
+                  />
+                </div>
+              )}
 
               <div className="bg-blue-50 rounded-lg px-4 py-3 text-sm text-blue-700">
                 <span className="font-semibold">Fecha y hora de apertura: </span>
@@ -446,7 +464,7 @@ export function ShiftsPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleOpenShift}
-                disabled={!openForm.employeeName || !openForm.initialAmount || !openPassword}
+                disabled={!openForm.employeeName || (!isCook && !openForm.initialAmount) || !openPassword}
                 className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3 rounded-lg font-semibold hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Abrir Turno
@@ -490,110 +508,116 @@ export function ShiftsPage() {
                 <span className="text-gray-500">Duración:</span>
                 <span className="font-medium">{formatElapsed(currentShift.startTime)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Fondo inicial:</span>
-                <span className="font-medium">${currentShift.initialAmount.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* Desglose de ventas */}
-            <div className="rounded-xl border border-gray-200 overflow-hidden mb-4">
-              <div className="bg-green-50 px-4 py-2 border-b border-gray-200">
-                <p className="font-semibold text-green-700 text-sm">
-                  Ventas del turno ({currentShift.salesCount} órdenes)
-                </p>
-              </div>
-              <div className="p-4 space-y-2 text-sm">
+              {!isCook && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Efectivo:</span>
-                  <span className="font-medium text-green-600">${salesCash.toFixed(2)}</span>
+                  <span className="text-gray-500">Fondo inicial:</span>
+                  <span className="font-medium">${currentShift.initialAmount.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Tarjeta:</span>
-                  <span className="font-medium">${salesCard.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Transferencia:</span>
-                  <span className="font-medium">${salesTransfer.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t border-gray-100 pt-2 font-bold">
-                  <span>Total ventas:</span>
-                  <span className="text-green-600">${totalSales.toFixed(2)}</span>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Efectivo esperado */}
-            <div className="bg-blue-50 rounded-xl p-4 mb-4 text-sm">
-              <div className="flex justify-between mb-1 text-gray-600">
-                <span>Fondo inicial:</span>
-                <span>+${currentShift.initialAmount.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between mb-1 text-gray-600">
-                <span>Ventas en efectivo:</span>
-                <span>+${salesCash.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between mb-2 text-gray-600">
-                <span>Retiros realizados:</span>
-                <span className="text-red-500">-${shiftWithdrawals.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-blue-700 border-t border-blue-200 pt-2">
-                <span>Efectivo esperado en caja:</span>
-                <span>${expectedAmount.toFixed(2)}</span>
-              </div>
-            </div>
+            {!isCook && (
+              <>
+                {/* Desglose de ventas */}
+                <div className="rounded-xl border border-gray-200 overflow-hidden mb-4">
+                  <div className="bg-green-50 px-4 py-2 border-b border-gray-200">
+                    <p className="font-semibold text-green-700 text-sm">
+                      Ventas del turno ({currentShift.salesCount} órdenes)
+                    </p>
+                  </div>
+                  <div className="p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Efectivo:</span>
+                      <span className="font-medium text-green-600">${salesCash.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Tarjeta:</span>
+                      <span className="font-medium">${salesCard.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Transferencia:</span>
+                      <span className="font-medium">${salesTransfer.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-100 pt-2 font-bold">
+                      <span>Total ventas:</span>
+                      <span className="text-green-600">${totalSales.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
 
-            {/* Conteo físico */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Conteo físico de caja ($)
-              </label>
-              <input
-                type="number"
-                value={finalAmount}
-                onChange={(e) => setFinalAmount(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-lg"
-                placeholder="0.00"
-                min="0"
-                autoFocus
-              />
-            </div>
+                {/* Efectivo esperado */}
+                <div className="bg-blue-50 rounded-xl p-4 mb-4 text-sm">
+                  <div className="flex justify-between mb-1 text-gray-600">
+                    <span>Fondo inicial:</span>
+                    <span>+${currentShift.initialAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between mb-1 text-gray-600">
+                    <span>Ventas en efectivo:</span>
+                    <span>+${salesCash.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between mb-2 text-gray-600">
+                    <span>Retiros realizados:</span>
+                    <span className="text-red-500">-${shiftWithdrawals.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-blue-700 border-t border-blue-200 pt-2">
+                    <span>Efectivo esperado en caja:</span>
+                    <span>${expectedAmount.toFixed(2)}</span>
+                  </div>
+                </div>
 
-            {/* Diferencia */}
-            {finalAmount && (
-              <div
-                className={`rounded-xl p-4 mb-4 text-center border ${
-                  difference > 0
-                    ? 'bg-green-50 border-green-200'
-                    : difference < 0
-                    ? 'bg-red-50 border-red-200'
-                    : 'bg-gray-50 border-gray-200'
-                }`}
-              >
-                <p className="text-sm text-gray-500 mb-1">Diferencia</p>
-                <p
-                  className={`text-4xl font-bold ${
-                    difference > 0
-                      ? 'text-green-600'
-                      : difference < 0
-                      ? 'text-red-600'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  {difference >= 0 ? '+' : ''}${difference.toFixed(2)}
-                </p>
-                <p
-                  className={`text-sm font-semibold mt-1 ${
-                    difference > 0
-                      ? 'text-green-500'
-                      : difference < 0
-                      ? 'text-red-500'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  {difference > 0 ? 'Sobrante' : difference < 0 ? 'Faltante' : 'Exacto'}
-                </p>
-              </div>
+                {/* Conteo físico */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Conteo físico de caja ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={finalAmount}
+                    onChange={(e) => setFinalAmount(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none text-lg"
+                    placeholder="0.00"
+                    min="0"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Diferencia */}
+                {finalAmount && (
+                  <div
+                    className={`rounded-xl p-4 mb-4 text-center border ${
+                      difference > 0
+                        ? 'bg-green-50 border-green-200'
+                        : difference < 0
+                        ? 'bg-red-50 border-red-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <p className="text-sm text-gray-500 mb-1">Diferencia</p>
+                    <p
+                      className={`text-4xl font-bold ${
+                        difference > 0
+                          ? 'text-green-600'
+                          : difference < 0
+                          ? 'text-red-600'
+                          : 'text-gray-600'
+                      }`}
+                    >
+                      {difference >= 0 ? '+' : ''}${difference.toFixed(2)}
+                    </p>
+                    <p
+                      className={`text-sm font-semibold mt-1 ${
+                        difference > 0
+                          ? 'text-green-500'
+                          : difference < 0
+                          ? 'text-red-500'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      {difference > 0 ? 'Sobrante' : difference < 0 ? 'Faltante' : 'Exacto'}
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Notas */}
@@ -645,7 +669,7 @@ export function ShiftsPage() {
             <div className="flex gap-3">
               <button
                 onClick={handleCloseShift}
-                disabled={!finalAmount || !closePassword}
+                disabled={(!isCook && !finalAmount) || !closePassword}
                 className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-lg font-semibold hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Confirmar Cierre

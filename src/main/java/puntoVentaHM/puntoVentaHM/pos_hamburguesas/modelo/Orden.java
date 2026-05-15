@@ -38,6 +38,10 @@ public class Orden {
     @JoinColumn(name = "id_sesion_caja", nullable = false)
     private SesionCaja sesionCaja;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_mesa")
+    private Mesa mesa;
+
     @Column(nullable = false)
     private LocalDateTime fecha = LocalDateTime.now();
 

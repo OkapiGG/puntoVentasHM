@@ -4,7 +4,8 @@ public enum RolSistema {
     ADMIN,
     GERENTE,
     CAJERO,
-    REPARTIDOR;
+    REPARTIDOR,
+    COCINERO;
 
     public static RolSistema from(String value) {
         if (value == null || value.trim().isBlank()) {

@@ -3,16 +3,18 @@ package puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public record HistorialVentaResponse(
+public record OrdenSeguimientoResponse(
         Long idOrden,
         String folio,
         LocalDateTime fecha,
         String nombreCajero,
         String tipoOrden,
-        String metodoPago,
         BigDecimal total,
+        Integer cantidadItems,
         String estado,
-        Boolean pagada,
-        String motivoCancelacion
+        boolean pagada,
+        String motivoCancelacion,
+        Integer numeroMesa,
+        DomicilioOrdenResponse domicilio
 ) {
 }

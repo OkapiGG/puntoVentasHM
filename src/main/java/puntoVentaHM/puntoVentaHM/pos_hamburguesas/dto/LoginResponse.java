@@ -5,6 +5,7 @@ public record LoginResponse(
         String nombre,
         String rol,
         Long idNegocio,
-        String avatarUrl
+        String avatarUrl,
+        String token
 ) {
 }

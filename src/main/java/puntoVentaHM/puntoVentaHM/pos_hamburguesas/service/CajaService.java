@@ -110,9 +110,13 @@ public class CajaService {
         for (SesionCaja sesion : sesiones) {
             for (MovimientoCaja movimiento : movimientoCajaRepository.findBySesionCajaIdSesionCajaOrderByFechaDesc(sesion.getIdSesionCaja())) {
                 if (!movimiento.getFecha().isBefore(rango.inicio()) && !movimiento.getFecha().isAfter(rango.fin())) {
-                    if ("RETIRO".equalsIgnoreCase(movimiento.getTipo()) || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.getTipo())) {
+                    if ("RETIRO".equalsIgnoreCase(movimiento.getTipo())
+                            || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.getTipo())
+                            || "EGRESO".equalsIgnoreCase(movimiento.getTipo())) {
                         eventos.add(new BitacoraCajaResponse(
-                                "RETIRO".equalsIgnoreCase(movimiento.getTipo()) ? "RETIRO_MANUAL" : "RETIRO_SEGURIDAD",
+                                "EGRESO".equalsIgnoreCase(movimiento.getTipo())
+                                        ? "EGRESO"
+                                        : "RETIRO".equalsIgnoreCase(movimiento.getTipo()) ? "RETIRO_MANUAL" : "RETIRO_SEGURIDAD",
                                 movimiento.getFecha(),
                                 sesion.getUsuario().getIdUsuario(),
                                 sesion.getUsuario().getNombre(),
@@ -249,16 +253,17 @@ public class CajaService {
 
         BigDecimal totalVentasEfectivo = sumarPorTipo(movimientos, "INGRESO_VENTA_EFECTIVO").add(sumarPorTipo(movimientos, "INGRESO_VENTA"));
         BigDecimal totalVentasTarjeta = sumarPorTipo(movimientos, "INGRESO_VENTA_TARJETA");
-        BigDecimal totalVentas = totalVentasEfectivo.add(totalVentasTarjeta);
+        BigDecimal totalVentasTransferencia = sumarPorTipo(movimientos, "INGRESO_VENTA_TRANSFERENCIA");
+        BigDecimal totalVentas = totalVentasEfectivo.add(totalVentasTarjeta).add(totalVentasTransferencia);
         BigDecimal totalIngresosManuales = sumarPorTipo(movimientos, "INGRESO_MANUAL");
-        BigDecimal totalRetiros = sumarPorTipo(movimientos, "RETIRO");
+        BigDecimal totalRetiros = sumarPorTipo(movimientos, "RETIRO").add(sumarPorTipo(movimientos, "EGRESO"));
         BigDecimal totalRetirosSeguridad = sumarPorTipo(movimientos, "RETIRO_SEGURIDAD");
         BigDecimal retirosTotales = totalRetiros.add(totalRetirosSeguridad);
         BigDecimal efectivoEnCaja = sesionCaja.getFondoInicial()
                 .add(totalVentasEfectivo)
                 .add(totalIngresosManuales)
                 .subtract(retirosTotales);
-        BigDecimal saldoEsperado = efectivoEnCaja.add(totalVentasTarjeta);
+        BigDecimal saldoEsperado = efectivoEnCaja.add(totalVentasTarjeta).add(totalVentasTransferencia);
         BigDecimal montoDeclaradoFinal = montoDeclarado != null ? montoDeclarado : sesionCaja.getMontoDeclaradoCierre();
         BigDecimal diferencia = montoDeclaradoFinal != null
                 ? montoDeclaradoFinal.subtract(efectivoEnCaja)
@@ -281,6 +286,7 @@ public class CajaService {
                 totalVentas,
                 totalVentasEfectivo,
                 totalVentasTarjeta,
+                totalVentasTransferencia,
                 totalIngresosManuales,
                 retirosTotales,
                 totalRetirosSeguridad,
@@ -308,6 +314,7 @@ public class CajaService {
                 respuesta.totalVentas(),
                 respuesta.totalVentasEfectivo(),
                 respuesta.totalVentasTarjeta(),
+                respuesta.totalVentasTransferencia(),
                 respuesta.totalIngresosManuales(),
                 respuesta.totalRetiros(),
                 respuesta.totalRetirosSeguridad(),
@@ -337,7 +344,9 @@ public class CajaService {
         return sesionCaja.getFondoInicial()
                 .add(sumarPorTipo(movimientos, "INGRESO_VENTA_EFECTIVO").add(sumarPorTipo(movimientos, "INGRESO_VENTA")))
                 .add(sumarPorTipo(movimientos, "INGRESO_MANUAL"))
-                .subtract(sumarPorTipo(movimientos, "RETIRO").add(sumarPorTipo(movimientos, "RETIRO_SEGURIDAD")));
+                .subtract(sumarPorTipo(movimientos, "RETIRO")
+                        .add(sumarPorTipo(movimientos, "RETIRO_SEGURIDAD"))
+                        .add(sumarPorTipo(movimientos, "EGRESO")));
     }
 
     private BigDecimal sumarPorTipo(List<MovimientoCajaResponse> movimientos, String tipo) {
@@ -379,7 +388,9 @@ public class CajaService {
         int cancelaciones = respuestas.stream().mapToInt(SesionCajaResponse::cantidadCancelaciones).sum();
         int retiros = respuestas.stream()
                 .flatMap(respuesta -> respuesta.movimientos().stream())
-                .filter(movimiento -> "RETIRO".equalsIgnoreCase(movimiento.tipo()) || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.tipo()))
+                .filter(movimiento -> "RETIRO".equalsIgnoreCase(movimiento.tipo())
+                        || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.tipo())
+                        || "EGRESO".equalsIgnoreCase(movimiento.tipo()))
                 .toList()
                 .size();
 
@@ -393,6 +404,9 @@ public class CajaService {
                 cancelaciones,
                 retiros,
                 sumar(respuestas, SesionCajaResponse::totalVentas),
+                sumar(respuestas, SesionCajaResponse::totalVentasEfectivo),
+                sumar(respuestas, SesionCajaResponse::totalVentasTarjeta),
+                sumar(respuestas, SesionCajaResponse::totalVentasTransferencia),
                 sumar(respuestas, SesionCajaResponse::efectivoEnCaja),
                 sumar(respuestas, SesionCajaResponse::totalIngresosManuales),
                 sumar(respuestas, respuesta -> respuesta.totalRetiros().subtract(respuesta.totalRetirosSeguridad())),
@@ -409,7 +423,9 @@ public class CajaService {
         int cierres = (int) respuestas.stream().filter(respuesta -> "CERRADA".equalsIgnoreCase(respuesta.estado())).count();
         int retiros = respuestas.stream()
                 .flatMap(respuesta -> respuesta.movimientos().stream())
-                .filter(movimiento -> "RETIRO".equalsIgnoreCase(movimiento.tipo()) || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.tipo()))
+                .filter(movimiento -> "RETIRO".equalsIgnoreCase(movimiento.tipo())
+                        || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.tipo())
+                        || "EGRESO".equalsIgnoreCase(movimiento.tipo()))
                 .toList()
                 .size();
 
@@ -422,6 +438,9 @@ public class CajaService {
                 respuestas.stream().mapToInt(SesionCajaResponse::cantidadCancelaciones).sum(),
                 retiros,
                 sumar(respuestas, SesionCajaResponse::totalVentas),
+                sumar(respuestas, SesionCajaResponse::totalVentasEfectivo),
+                sumar(respuestas, SesionCajaResponse::totalVentasTarjeta),
+                sumar(respuestas, SesionCajaResponse::totalVentasTransferencia),
                 sumar(respuestas, SesionCajaResponse::efectivoEnCaja),
                 sumar(respuestas, SesionCajaResponse::totalRetirosSeguridad),
                 sumar(respuestas, SesionCajaResponse::saldoEsperado),

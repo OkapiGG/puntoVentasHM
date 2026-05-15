@@ -11,11 +11,19 @@ import { CashRegisterPage } from './pages/CashRegisterPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ShiftsPage } from './pages/ShiftsPage';
+import { SalesHistoryPage } from './pages/SalesHistoryPage';
+import { OrdersPage } from './pages/OrdersPage';
+import { KitchenPage } from './pages/KitchenPage';
 import { useAuth } from './context/AuthContext';
+
+function landingPathForRole(role?: string) {
+  if (role === 'cook') return '/kitchen';
+  return '/dashboard';
+}
 
 function PublicRoute({ children }: { children: JSX.Element }) {
   const { user } = useAuth();
-  return user ? <Navigate to="/dashboard" replace /> : children;
+  return user ? <Navigate to={landingPathForRole(user.role)} replace /> : children;
 }
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -97,6 +105,22 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/orders',
+    element: (
+      <ProtectedRoute>
+        <OrdersPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/kitchen',
+    element: (
+      <ProtectedRoute>
+        <KitchenPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/shifts',
     element: (
       <ProtectedRoute>
@@ -109,6 +133,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <ReportsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/sales-history',
+    element: (
+      <ProtectedRoute>
+        <SalesHistoryPage />
       </ProtectedRoute>
     ),
   },

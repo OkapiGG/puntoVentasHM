@@ -24,6 +24,9 @@ interface UserSummaryApi {
   cancelaciones: number;
   retiros: number;
   totalVentas: number;
+  totalVentasEfectivo: number;
+  totalVentasTarjeta: number;
+  totalVentasTransferencia: number;
   efectivoEnCaja: number;
   retirosSeguridad: number;
   saldoEsperado: number;
@@ -150,6 +153,9 @@ export function ReportsPage() {
                       <p className="font-semibold text-gray-800">{row.nombreUsuario}</p>
                       <p className="text-xs text-gray-400">
                         Ventas: {row.ventasCobradas} · Cancelaciones: {row.cancelaciones} · Retiros: {row.retiros}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Efec. ${Number(row.totalVentasEfectivo ?? 0).toFixed(2)} · Tarj. ${Number(row.totalVentasTarjeta ?? 0).toFixed(2)} · Transf. ${Number(row.totalVentasTransferencia ?? 0).toFixed(2)}
                       </p>
                     </div>
                     <div className="text-right">

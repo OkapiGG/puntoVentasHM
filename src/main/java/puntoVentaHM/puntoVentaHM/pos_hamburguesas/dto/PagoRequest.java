@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 public record PagoRequest(
         String metodo,
-        BigDecimal efectivoRecibido
+        BigDecimal efectivoRecibido,
+        BigDecimal cambioSolicitado
 ) {
 }

@@ -37,7 +37,7 @@ public class CajaController {
 
     @GetMapping("/usuarios/{idUsuario}/sesion-actual")
     public ResponseEntity<SesionCajaResponse> obtenerSesionActual(@PathVariable Long idUsuario, HttpServletRequest request) {
-        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO, RolSistema.COCINERO);
         SesionCajaResponse sesionCaja = cajaService.obtenerSesionActual(idUsuario);
         if (sesionCaja == null) {
             return ResponseEntity.noContent().build();
@@ -47,7 +47,7 @@ public class CajaController {
 
     @GetMapping("/usuarios/{idUsuario}/historial")
     public java.util.List<SesionCajaResumenResponse> listarHistorial(@PathVariable Long idUsuario, HttpServletRequest request) {
-        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        accessControlService.requireAnyRole(request, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO, RolSistema.COCINERO);
         return cajaService.listarHistorial(idUsuario);
     }
 
@@ -77,7 +77,7 @@ public class CajaController {
 
     @PostMapping("/usuarios/{idUsuario}/apertura")
     public SesionCajaResponse abrirCaja(@PathVariable Long idUsuario, @RequestBody AperturaCajaRequest request, HttpServletRequest httpRequest) {
-        accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO, RolSistema.COCINERO);
         return cajaService.abrirCaja(idUsuario, request);
     }
 
@@ -89,7 +89,7 @@ public class CajaController {
 
     @PostMapping("/usuarios/{idUsuario}/cierre")
     public SesionCajaResponse cerrarCaja(@PathVariable Long idUsuario, @RequestBody CierreCajaRequest request, HttpServletRequest httpRequest) {
-        accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO);
+        accessControlService.requireAnyRole(httpRequest, RolSistema.ADMIN, RolSistema.GERENTE, RolSistema.CAJERO, RolSistema.COCINERO);
         return cajaService.cerrarCaja(idUsuario, request);
     }
 

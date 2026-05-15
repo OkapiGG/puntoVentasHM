@@ -2,6 +2,7 @@ package puntoVentaHM.puntoVentaHM.pos_hamburguesas.service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AdminCatalogoResponse;
@@ -51,6 +52,7 @@ public class AdminService {
     private final UsuarioRepository usuarioRepository;
     private final RecetaProductoRepository recetaProductoRepository;
     private final RecetaModificadorRepository recetaModificadorRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public AdminService(
             NegocioRepository negocioRepository,
@@ -61,7 +63,8 @@ public class AdminService {
             InsumoRepository insumoRepository,
             UsuarioRepository usuarioRepository,
             RecetaProductoRepository recetaProductoRepository,
-            RecetaModificadorRepository recetaModificadorRepository
+            RecetaModificadorRepository recetaModificadorRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.negocioRepository = negocioRepository;
         this.categoriaRepository = categoriaRepository;
@@ -72,6 +75,7 @@ public class AdminService {
         this.usuarioRepository = usuarioRepository;
         this.recetaProductoRepository = recetaProductoRepository;
         this.recetaModificadorRepository = recetaModificadorRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -328,7 +332,7 @@ public class AdminService {
             if (pin.isBlank()) {
                 throw new IllegalArgumentException("El pin de acceso es obligatorio");
             }
-            usuario.setPinAcceso(pin);
+            usuario.setPinAcceso(passwordEncoder.encode(pin));
         }
 
         usuario.setRol(RolSistema.from(request.rol()).name());

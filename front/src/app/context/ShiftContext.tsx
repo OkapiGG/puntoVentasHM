@@ -40,6 +40,7 @@ export interface CashSummaryByPeriod {
   totalSales: number;
   totalCashSales: number;
   totalCardSales: number;
+  totalTransferSales: number;
   totalManualIncome: number;
   totalWithdrawals: number;
   totalSecurityWithdrawals: number;
@@ -80,6 +81,7 @@ interface SessionApi {
   totalVentas: number;
   totalVentasEfectivo: number;
   totalVentasTarjeta: number;
+  totalVentasTransferencia: number;
   totalIngresosManuales: number;
   totalRetiros: number;
   totalRetirosSeguridad: number;
@@ -104,6 +106,7 @@ interface SessionSummaryApi {
   totalVentas: number;
   totalVentasEfectivo: number;
   totalVentasTarjeta: number;
+  totalVentasTransferencia: number;
   totalIngresosManuales: number;
   totalRetiros: number;
   totalRetirosSeguridad: number;
@@ -129,6 +132,7 @@ interface PeriodSummaryApi {
   totalVentas: number;
   totalVentasEfectivo: number;
   totalVentasTarjeta: number;
+  totalVentasTransferencia: number;
   totalIngresosManuales: number;
   totalRetiros: number;
   totalRetirosSeguridad: number;
@@ -167,13 +171,13 @@ function mapSession(session: SessionApi | SessionSummaryApi, movements: CashMove
     finalAmount: session.montoDeclarado == null ? undefined : toNumber(session.montoDeclarado),
     salesCash: toNumber(session.totalVentasEfectivo),
     salesCard: toNumber(session.totalVentasTarjeta),
-    salesTransfer: 0,
+    salesTransfer: toNumber(session.totalVentasTransferencia),
     totalSales: toNumber(session.totalVentas),
     withdrawals: toNumber(session.totalRetiros),
     securityWithdrawals: toNumber(session.totalRetirosSeguridad),
     manualIncome: toNumber(session.totalIngresosManuales),
     currentCash: toNumber(session.efectivoEnCaja),
-    expectedAmount: toNumber(session.saldoEsperado),
+    expectedAmount: toNumber(session.efectivoEnCaja),
     difference: session.diferencia == null ? undefined : toNumber(session.diferencia),
     salesCount: session.cantidadVentas ?? 0,
     cancellationsCount: session.cantidadCancelaciones ?? 0,
@@ -189,6 +193,7 @@ function mapPeriodSummary(summary: PeriodSummaryApi): CashSummaryByPeriod {
     totalSales: toNumber(summary.totalVentas),
     totalCashSales: toNumber(summary.totalVentasEfectivo),
     totalCardSales: toNumber(summary.totalVentasTarjeta),
+    totalTransferSales: toNumber(summary.totalVentasTransferencia),
     totalManualIncome: toNumber(summary.totalIngresosManuales),
     totalWithdrawals: toNumber(summary.totalRetiros),
     totalSecurityWithdrawals: toNumber(summary.totalRetirosSeguridad),

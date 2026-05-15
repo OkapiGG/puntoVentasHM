@@ -44,7 +44,8 @@ export function DashboardPage() {
 
   const topProducts = [...products].slice(0, 5);
   const cashSales = currentShift?.salesCash ?? periodSummary?.totalCashSales ?? 0;
-  const cardSales = (currentShift?.salesCard ?? 0) + (periodSummary?.totalCardSales ?? 0);
+  const cardSales = currentShift?.salesCard ?? periodSummary?.totalCardSales ?? 0;
+  const transferSales = currentShift?.salesTransfer ?? periodSummary?.totalTransferSales ?? 0;
 
   return (
     <MainLayout>
@@ -73,13 +74,14 @@ export function DashboardPage() {
             <p className="text-sm opacity-90 mt-1">Operaciones registradas</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
             <div className="flex items-center justify-between mb-4">
               <CreditCard className="w-8 h-8" />
               <span className="text-sm opacity-90">Pagos</span>
             </div>
             <p className="text-lg font-bold">Efectivo: ${cashSales.toFixed(2)}</p>
             <p className="text-lg font-bold">Tarjeta: ${cardSales.toFixed(2)}</p>
+            <p className="text-lg font-bold">Transfer.: ${transferSales.toFixed(2)}</p>
           </div>
 
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white shadow-lg">

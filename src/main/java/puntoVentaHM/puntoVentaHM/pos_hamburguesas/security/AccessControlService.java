@@ -2,21 +2,26 @@ package puntoVentaHM.puntoVentaHM.pos_hamburguesas.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.SesionUsuario;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Usuario;
-import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.UsuarioRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.SesionCajaRepository;
 
 @Service
 public class AccessControlService {
 
-    private static final String USER_HEADER = "X-User-Id";
+    private static final String AUTH_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    private final UsuarioRepository usuarioRepository;
+    private final SesionCajaRepository sesionCajaRepository;
+    private final TokenService tokenService;
 
-    public AccessControlService(UsuarioRepository usuarioRepository) {
-        this.usuarioRepository = usuarioRepository;
+    public AccessControlService(SesionCajaRepository sesionCajaRepository, TokenService tokenService) {
+        this.sesionCajaRepository = sesionCajaRepository;
+        this.tokenService = tokenService;
     }
 
     public Usuario requireAnyRole(HttpServletRequest request, RolSistema... allowedRoles) {
@@ -30,19 +35,37 @@ public class AccessControlService {
     }
 
     public Usuario requireAuthenticated(HttpServletRequest request) {
-        String rawUserId = request.getHeader(USER_HEADER);
-        if (rawUserId == null || rawUserId.trim().isBlank()) {
+        String token = extraerToken(request);
+        if (token == null) {
             throw new UnauthorizedAccessException("Falta identificar al usuario actual");
         }
-
-        Long idUsuario;
-        try {
-            idUsuario = Long.valueOf(rawUserId.trim());
-        } catch (NumberFormatException exception) {
-            throw new UnauthorizedAccessException("Identificador de usuario invalido");
+        SesionUsuario sesion = tokenService.validarToken(token);
+        if (!Boolean.TRUE.equals(sesion.getUsuario().getActivo())) {
+            throw new UnauthorizedAccessException("Usuario inactivo");
         }
+        return sesion.getUsuario();
+    }
 
-        return usuarioRepository.findById(idUsuario)
-                .orElseThrow(() -> new UnauthorizedAccessException("Usuario no encontrado"));
+    public String extraerToken(HttpServletRequest request) {
+        String header = request.getHeader(AUTH_HEADER);
+        if (header == null || !header.startsWith(BEARER_PREFIX)) {
+            return null;
+        }
+        String token = header.substring(BEARER_PREFIX.length()).trim();
+        return token.isEmpty() ? null : token;
+    }
+
+    public void requireOpenShift(Usuario usuario) {
+        sesionCajaRepository.findTopByUsuarioIdUsuarioAndEstadoOrderByAperturaDesc(usuario.getIdUsuario(), "ABIERTA")
+                .orElseThrow(() -> new ForbiddenOperationException("Debes abrir un turno antes de operar"));
+    }
+
+    public void requireSameTenant(Usuario usuario, Long idNegocio) {
+        if (idNegocio == null) {
+            throw new ForbiddenOperationException("Negocio no especificado");
+        }
+        if (!Objects.equals(usuario.getNegocio().getIdNegocio(), idNegocio)) {
+            throw new ForbiddenOperationException("No tienes permisos sobre este negocio");
+        }
     }
 }

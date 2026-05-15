@@ -3,10 +3,12 @@ package puntoVentaHM.puntoVentaHM.pos_hamburguesas.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CancelacionOrdenResponse;
@@ -15,26 +17,31 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CotizacionOrdenResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.CrearOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ActualizarEstadoDomicilioRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ActualizarEstadoOrdenRequest;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AgregarItemsOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.AsignarRepartidorRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.DomicilioOrdenRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.DomicilioOrdenResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.HistorialVentaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenActivaResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenCocinaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemModRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemModResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemPromocionResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenItemResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.OrdenSeguimientoResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.PagoRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.PagoResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.RepartidorOptionResponse;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.ReembolsoRequest;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.TicketResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.dto.VentasDiaResponse;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.LineaOrden;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.LineaOrdenMod;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.LineaOrdenPromocion;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Modificador;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Mesa;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.MovimientoCaja;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Orden;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.OrdenDomicilio;
@@ -48,6 +55,7 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.modelo.Usuario;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.LineaOrdenRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.LineaOrdenPromocionRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.LineaOrdenModRepository;
+import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.MesaRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.ModificadorRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.MovimientoCajaRepository;
 import puntoVentaHM.puntoVentaHM.pos_hamburguesas.repository.OrdenRepository;
@@ -62,8 +70,8 @@ import puntoVentaHM.puntoVentaHM.pos_hamburguesas.security.RolSistema;
 @Service
 public class VentaService {
 
-    private static final List<String> ESTADOS_ACTIVOS = List.of("PREPARANDO", "LISTO", "EN_RUTA");
-    private static final List<String> ESTADOS_PEDIDO = List.of("PREPARANDO", "LISTO", "EN_RUTA", "ENTREGADO", "CANCELADO");
+    private static final List<String> ESTADOS_ACTIVOS = List.of("POR_ACEPTAR", "PREPARANDO", "LISTO", "EN_RUTA");
+    private static final List<String> ESTADOS_PEDIDO = List.of("POR_ACEPTAR", "PREPARANDO", "LISTO", "EN_RUTA", "ENTREGADO", "CANCELADO", "REEMBOLSADO");
 
     private final OrdenRepository ordenRepository;
     private final OrdenDomicilioRepository ordenDomicilioRepository;
@@ -73,12 +81,14 @@ public class VentaService {
     private final PagoRepository pagoRepository;
     private final ProductoRepository productoRepository;
     private final ModificadorRepository modificadorRepository;
+    private final MesaRepository mesaRepository;
     private final SesionCajaRepository sesionCajaRepository;
     private final MovimientoCajaRepository movimientoCajaRepository;
     private final InsumoRepository insumoRepository;
     private final UsuarioRepository usuarioRepository;
     private final PromocionService promocionService;
     private final InventarioService inventarioService;
+    private final PasswordEncoder passwordEncoder;
 
     public VentaService(
             OrdenRepository ordenRepository,
@@ -89,12 +99,14 @@ public class VentaService {
             PagoRepository pagoRepository,
             ProductoRepository productoRepository,
             ModificadorRepository modificadorRepository,
+            MesaRepository mesaRepository,
             SesionCajaRepository sesionCajaRepository,
             MovimientoCajaRepository movimientoCajaRepository,
             InsumoRepository insumoRepository,
             UsuarioRepository usuarioRepository,
             PromocionService promocionService,
-            InventarioService inventarioService
+            InventarioService inventarioService,
+            PasswordEncoder passwordEncoder
     ) {
         this.ordenRepository = ordenRepository;
         this.ordenDomicilioRepository = ordenDomicilioRepository;
@@ -104,12 +116,14 @@ public class VentaService {
         this.pagoRepository = pagoRepository;
         this.productoRepository = productoRepository;
         this.modificadorRepository = modificadorRepository;
+        this.mesaRepository = mesaRepository;
         this.sesionCajaRepository = sesionCajaRepository;
         this.movimientoCajaRepository = movimientoCajaRepository;
         this.insumoRepository = insumoRepository;
         this.usuarioRepository = usuarioRepository;
         this.promocionService = promocionService;
         this.inventarioService = inventarioService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -161,8 +175,9 @@ public class VentaService {
         orden.setFechaOperacion(fechaOperacion);
         orden.setFolioDia(folioDia);
         orden.setTipoOrden(tipoOrden);
-        orden.setEstado("PREPARANDO");
+        orden.setEstado("POR_ACEPTAR");
         orden.setTotal(BigDecimal.ZERO);
+        orden.setMesa(resolverMesaParaOrden(request.idMesa(), tipoOrden, sesionCaja.getUsuario().getNegocio().getIdNegocio()));
         orden = ordenRepository.save(orden);
 
         PromocionService.ResultadoPromocion cotizacion = promocionService.cotizar(
@@ -172,6 +187,7 @@ public class VentaService {
         BigDecimal total = BigDecimal.ZERO;
         BigDecimal totalDescuentoPromocional = cotizacion.totalDescuento();
         List<OrdenItemResponse> items = new ArrayList<>();
+        java.util.Map<Long, BigDecimal> requeridosPorInsumo = new java.util.HashMap<>();
         Map<String, PromocionService.LineaCotizacion> cotizacionPorProducto = cotizacion.getLineas().stream()
                 .collect(java.util.stream.Collectors.toMap(PromocionService.LineaCotizacion::getClave, linea -> linea, (a, b) -> a));
 
@@ -233,6 +249,12 @@ public class VentaService {
             lineaOrden.setDescuentoPromocionalSnapshot(descuentoPromocional);
             lineaOrden = lineaOrdenRepository.save(lineaOrden);
 
+            for (RecetaProducto recetaProducto : producto.getReceta()) {
+                BigDecimal requerido = recetaProducto.getCantidad()
+                        .multiply(BigDecimal.valueOf(itemRequest.cantidad()));
+                requeridosPorInsumo.merge(recetaProducto.getInsumo().getIdInsumo(), requerido, BigDecimal::add);
+            }
+
             for (OrdenItemModRequest modificadorRequest : modificadoresRequest) {
                 if (modificadorRequest == null || modificadorRequest.idModificador() == null) {
                     continue;
@@ -247,6 +269,12 @@ public class VentaService {
                 lineaOrdenMod.setNombreSnapshot(modificador.getNombre());
                 lineaOrdenMod.setPrecioExtraSnapshot(modificador.getPrecioExtra());
                 lineaOrdenModRepository.save(lineaOrdenMod);
+
+                for (RecetaModificador recetaModificador : modificador.getReceta()) {
+                    BigDecimal requerido = recetaModificador.getCantidad()
+                            .multiply(BigDecimal.valueOf(itemRequest.cantidad()));
+                    requeridosPorInsumo.merge(recetaModificador.getInsumo().getIdInsumo(), requerido, BigDecimal::add);
+                }
             }
 
             if (lineaCotizada != null) {
@@ -283,6 +311,8 @@ public class VentaService {
 
         orden.setTotal(total);
         ordenRepository.save(orden);
+        ocuparMesaSiCorresponde(orden);
+        aplicarDescuentoInventario(requeridosPorInsumo, "Orden " + construirFolio(orden));
 
         return new OrdenResponse(
                 orden.getIdOrden(),
@@ -299,15 +329,125 @@ public class VentaService {
     }
 
     @Transactional
+    public OrdenResponse agregarItemsAOrden(Long idOrden, AgregarItemsOrdenRequest request) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            throw new IllegalArgumentException("Debes incluir al menos un producto");
+        }
+
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
+                .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
+
+        List<String> estadosPermitidos = List.of("POR_ACEPTAR", "PREPARANDO", "LISTO");
+        if (!estadosPermitidos.contains(orden.getEstado())) {
+            throw new IllegalArgumentException("Solo puedes agregar productos a órdenes en preparación o listas");
+        }
+        if (tienePagoRegistrado(idOrden)) {
+            throw new IllegalArgumentException("No puedes agregar productos a una orden ya pagada");
+        }
+
+        BigDecimal totalAgregado = BigDecimal.ZERO;
+        java.util.Map<Long, BigDecimal> requeridosPorInsumo = new java.util.HashMap<>();
+
+        for (OrdenItemRequest itemRequest : request.items()) {
+            if (itemRequest.cantidad() == null || itemRequest.cantidad() <= 0) {
+                throw new IllegalArgumentException("La cantidad de cada producto debe ser mayor a cero");
+            }
+
+            Producto producto = productoRepository.findById(itemRequest.idProducto())
+                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + itemRequest.idProducto()));
+
+            BigDecimal totalModificadores = BigDecimal.ZERO;
+            List<OrdenItemModRequest> modificadoresRequest = itemRequest.modificadores() == null
+                    ? List.of()
+                    : itemRequest.modificadores();
+
+            for (OrdenItemModRequest modificadorRequest : modificadoresRequest) {
+                if (modificadorRequest == null || modificadorRequest.idModificador() == null) {
+                    continue;
+                }
+                Modificador modificador = modificadorRepository.findById(modificadorRequest.idModificador())
+                        .orElseThrow(() -> new IllegalArgumentException("Modificador no encontrado: " + modificadorRequest.idModificador()));
+                if (!Objects.equals(modificador.getProducto().getIdProducto(), producto.getIdProducto())) {
+                    throw new IllegalArgumentException("El modificador no pertenece al producto seleccionado");
+                }
+                totalModificadores = totalModificadores.add(modificador.getPrecioExtra());
+            }
+
+            BigDecimal precioListaUnitario = producto.getPrecio().add(totalModificadores);
+            BigDecimal subtotal = precioListaUnitario.multiply(BigDecimal.valueOf(itemRequest.cantidad()));
+            totalAgregado = totalAgregado.add(subtotal);
+
+            LineaOrden lineaOrden = new LineaOrden();
+            lineaOrden.setOrden(orden);
+            lineaOrden.setProducto(producto);
+            lineaOrden.setCantidad(itemRequest.cantidad());
+            lineaOrden.setNombreSnapshot(producto.getNombre());
+            lineaOrden.setPrecioUnitarioSnapshot(precioListaUnitario);
+            lineaOrden.setDescuentoPromocionalSnapshot(BigDecimal.ZERO);
+            lineaOrden = lineaOrdenRepository.save(lineaOrden);
+
+            for (RecetaProducto recetaProducto : producto.getReceta()) {
+                BigDecimal requerido = recetaProducto.getCantidad()
+                        .multiply(BigDecimal.valueOf(itemRequest.cantidad()));
+                requeridosPorInsumo.merge(recetaProducto.getInsumo().getIdInsumo(), requerido, BigDecimal::add);
+            }
+
+            for (OrdenItemModRequest modificadorRequest : modificadoresRequest) {
+                if (modificadorRequest == null || modificadorRequest.idModificador() == null) {
+                    continue;
+                }
+                Modificador modificador = modificadorRepository.findById(modificadorRequest.idModificador())
+                        .orElseThrow(() -> new IllegalArgumentException("Modificador no encontrado: " + modificadorRequest.idModificador()));
+
+                LineaOrdenMod lineaOrdenMod = new LineaOrdenMod();
+                lineaOrdenMod.setLineaOrden(lineaOrden);
+                lineaOrdenMod.setModificador(modificador);
+                lineaOrdenMod.setNombreSnapshot(modificador.getNombre());
+                lineaOrdenMod.setPrecioExtraSnapshot(modificador.getPrecioExtra());
+                lineaOrdenModRepository.save(lineaOrdenMod);
+
+                for (RecetaModificador recetaModificador : modificador.getReceta()) {
+                    BigDecimal requerido = recetaModificador.getCantidad()
+                            .multiply(BigDecimal.valueOf(itemRequest.cantidad()));
+                    requeridosPorInsumo.merge(recetaModificador.getInsumo().getIdInsumo(), requerido, BigDecimal::add);
+                }
+            }
+        }
+
+        aplicarDescuentoInventario(requeridosPorInsumo, "Agregado a orden " + construirFolio(orden));
+        orden.setTotal(orden.getTotal().add(totalAgregado));
+        ordenRepository.save(orden);
+
+        return new OrdenResponse(
+                orden.getIdOrden(),
+                construirFolio(orden),
+                orden.getTipoOrden(),
+                orden.getEstado(),
+                tienePagoRegistrado(orden.getIdOrden()),
+                BigDecimal.ZERO,
+                orden.getTotal(),
+                orden.getFecha(),
+                mapDomicilio(orden.getOrdenDomicilio()),
+                List.of()
+        );
+    }
+
+    @Transactional
     public PagoResponse registrarPago(Long idOrden, PagoRequest request) {
-        Orden orden = ordenRepository.findById(idOrden)
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
         if ("CANCELADO".equalsIgnoreCase(orden.getEstado())) {
             throw new IllegalArgumentException("No puedes cobrar una orden cancelada");
         }
+        if ("REEMBOLSADO".equalsIgnoreCase(orden.getEstado())) {
+            throw new IllegalArgumentException("No puedes cobrar una orden reembolsada");
+        }
         if (tienePagoRegistrado(idOrden)) {
             throw new IllegalArgumentException("La orden ya fue pagada");
+        }
+        if (!ESTADOS_PEDIDO.contains(orden.getEstado().toUpperCase())) {
+            throw new IllegalArgumentException("La orden no tiene un estado válido para cobro");
         }
 
         String metodo = request.metodo() == null ? "" : request.metodo().trim().toUpperCase();
@@ -326,9 +466,10 @@ public class VentaService {
                 throw new IllegalArgumentException("El efectivo recibido es menor al total de la orden");
             }
             cambio = efectivoRecibido.subtract(orden.getTotal());
+            if (cambio.compareTo(calcularEfectivoDisponible(orden.getSesionCaja())) > 0) {
+                throw new IllegalArgumentException("La caja no tiene suficiente efectivo disponible para dar cambio");
+            }
         }
-
-        descontarInventario(orden);
 
         Pago pago = new Pago();
         pago.setOrden(orden);
@@ -340,7 +481,11 @@ public class VentaService {
 
         MovimientoCaja movimientoCaja = new MovimientoCaja();
         movimientoCaja.setSesionCaja(orden.getSesionCaja());
-        movimientoCaja.setTipo("EFECTIVO".equals(metodo) ? "INGRESO_VENTA_EFECTIVO" : "INGRESO_VENTA_TARJETA");
+        movimientoCaja.setTipo(switch (metodo) {
+            case "EFECTIVO" -> "INGRESO_VENTA_EFECTIVO";
+            case "TRANSFERENCIA" -> "INGRESO_VENTA_TRANSFERENCIA";
+            default -> "INGRESO_VENTA_TARJETA";
+        });
         movimientoCaja.setMonto(orden.getTotal());
         movimientoCaja.setFecha(LocalDateTime.now());
         movimientoCaja.setMotivo("Pago de orden " + orden.getIdOrden());
@@ -355,6 +500,65 @@ public class VentaService {
                 pago.getCambio(),
                 orden.getEstado()
         );
+    }
+
+    @Transactional
+    public OrdenSeguimientoResponse reembolsarOrden(Long idOrden, ReembolsoRequest request, Long idUsuarioOperacion) {
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
+                .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
+
+        if ("CANCELADO".equalsIgnoreCase(orden.getEstado())) {
+            throw new IllegalArgumentException("No puedes reembolsar una orden cancelada");
+        }
+        if ("REEMBOLSADO".equalsIgnoreCase(orden.getEstado())) {
+            throw new IllegalArgumentException("La orden ya fue reembolsada");
+        }
+
+        Pago pago = pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(idOrden)
+                .orElseThrow(() -> new IllegalArgumentException("Solo puedes reembolsar una orden pagada"));
+
+        String motivo = request == null || request.motivo() == null ? "" : request.motivo().trim();
+        if (motivo.isBlank()) {
+            throw new IllegalArgumentException("Debes indicar el motivo del reembolso");
+        }
+
+        String pinGerente = request == null || request.pinGerente() == null ? "" : request.pinGerente().trim();
+        if (pinGerente.isBlank()) {
+            throw new IllegalArgumentException("Debes indicar el PIN de autorizacion");
+        }
+
+        Long idNegocio = orden.getSesionCaja().getUsuario().getNegocio().getIdNegocio();
+        Usuario autorizador = usuarioRepository.findByNegocioIdNegocioAndRolInAndActivoTrue(
+                        idNegocio,
+                        List.of(RolSistema.ADMIN.name(), RolSistema.GERENTE.name())
+                ).stream()
+                .filter(u -> passwordEncoder.matches(pinGerente, u.getPinAcceso()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("PIN de autorizacion invalido"));
+
+        SesionCaja sesionActual = sesionCajaRepository
+                .findTopByUsuarioIdUsuarioAndEstadoOrderByAperturaDesc(idUsuarioOperacion, "ABIERTA")
+                .orElseThrow(() -> new IllegalArgumentException("No hay una sesion de caja abierta para registrar el reembolso"));
+
+        if (!Objects.equals(sesionActual.getUsuario().getNegocio().getIdNegocio(), idNegocio)) {
+            throw new IllegalArgumentException("La sesion de caja no pertenece al negocio de la orden");
+        }
+
+        orden.setEstado("REEMBOLSADO");
+        orden.setMotivoCancelacion(motivo);
+        orden.setFechaCancelacion(LocalDateTime.now());
+        ordenRepository.save(orden);
+        liberarMesaSiCorresponde(orden);
+
+        MovimientoCaja movimientoCaja = new MovimientoCaja();
+        movimientoCaja.setSesionCaja(sesionActual);
+        movimientoCaja.setTipo("EGRESO");
+        movimientoCaja.setMonto(pago.getMonto());
+        movimientoCaja.setFecha(LocalDateTime.now());
+        movimientoCaja.setMotivo("Reembolso orden " + construirFolio(orden) + " autorizado por " + autorizador.getNombre() + ": " + motivo);
+        movimientoCajaRepository.save(movimientoCaja);
+
+        return mapOrdenSeguimiento(orden);
     }
 
     @Transactional(readOnly = true)
@@ -427,19 +631,21 @@ public class VentaService {
     public List<HistorialVentaResponse> listarVentasPagadasPorUsuario(Long idUsuario) {
         return ordenRepository.findBySesionCajaUsuarioIdUsuarioOrderByFechaDesc(idUsuario)
                 .stream()
-                .filter(orden -> tienePagoRegistrado(orden.getIdOrden()))
-                .map(orden -> {
-                    Pago pago = pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(orden.getIdOrden()).orElse(null);
-                    return new HistorialVentaResponse(
-                            orden.getIdOrden(),
-                            construirFolio(orden),
-                            orden.getFecha(),
-                            orden.getTipoOrden(),
-                            pago != null ? pago.getMetodo() : "N/A",
-                            orden.getTotal(),
-                            orden.getEstado()
-                    );
-                })
+                .filter(orden -> Boolean.TRUE.equals(tienePagoRegistrado(orden.getIdOrden())))
+                .map(this::mapHistorialVenta)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<HistorialVentaResponse> listarHistorialVentas(Long idNegocio, LocalDate fechaInicio, LocalDate fechaFin, String estado, String metodoPago) {
+        List<Orden> ordenes = obtenerOrdenesParaHistorial(idNegocio, fechaInicio, fechaFin);
+        String estadoNormalizado = normalizarFiltro(estado);
+        String metodoNormalizado = normalizarFiltro(metodoPago);
+
+        return ordenes.stream()
+                .map(this::mapHistorialVenta)
+                .filter(item -> filtrarPorEstado(item, estadoNormalizado))
+                .filter(item -> filtrarPorMetodo(item, metodoNormalizado))
                 .toList();
     }
 
@@ -452,24 +658,61 @@ public class VentaService {
     }
 
     @Transactional(readOnly = true)
+    public List<OrdenCocinaResponse> listarColaCocinaPorNegocio(Long idNegocio) {
+        List<String> estadosCocina = List.of("POR_ACEPTAR", "PREPARANDO");
+        return ordenRepository.findBySesionCajaUsuarioNegocioIdNegocioOrderByFechaDesc(idNegocio)
+                .stream()
+                .filter(orden -> estadosCocina.contains(orden.getEstado()))
+                .map(this::mapOrdenCocina)
+                .toList();
+    }
+
+    private OrdenCocinaResponse mapOrdenCocina(Orden orden) {
+        List<OrdenCocinaResponse.OrdenCocinaItem> items = orden.getLineasOrden().stream()
+                .map(linea -> new OrdenCocinaResponse.OrdenCocinaItem(
+                        linea.getNombreSnapshot(),
+                        linea.getCantidad(),
+                        linea.getModificadores().stream()
+                                .map(LineaOrdenMod::getNombreSnapshot)
+                                .toList()
+                ))
+                .toList();
+
+        return new OrdenCocinaResponse(
+                orden.getIdOrden(),
+                construirFolio(orden),
+                orden.getFecha(),
+                orden.getTipoOrden(),
+                orden.getLineasOrden().stream().map(LineaOrden::getCantidad).reduce(0, Integer::sum),
+                orden.getEstado(),
+                orden.getMesa() != null ? orden.getMesa().getNumero() : null,
+                orden.getOrdenDomicilio() != null ? orden.getOrdenDomicilio().getNombreCliente() : null,
+                items
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrdenSeguimientoResponse> listarOrdenesPorNegocio(Long idNegocio, String estado, String tipoOrden, Boolean pagada) {
+        String estadoNormalizado = normalizarFiltro(estado);
+        String tipoNormalizado = normalizarFiltro(tipoOrden);
+
+        return ordenRepository.findBySesionCajaUsuarioNegocioIdNegocioOrderByFechaDesc(idNegocio)
+                .stream()
+                .map(this::mapOrdenSeguimiento)
+                .filter(item -> estadoNormalizado == null || estadoNormalizado.equalsIgnoreCase(item.estado()))
+                .filter(item -> tipoNormalizado == null || tipoNormalizado.equalsIgnoreCase(item.tipoOrden()))
+                .filter(item -> pagada == null || pagada.equals(item.pagada()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public VentasDiaResponse obtenerVentasDelDia(Long idUsuario) {
         LocalDate hoy = LocalDate.now();
         List<Orden> ordenesHoy = ordenRepository.findBySesionCajaUsuarioIdUsuarioAndFechaOperacionOrderByFechaDesc(idUsuario, hoy);
 
         List<HistorialVentaResponse> ventasPagadas = ordenesHoy.stream()
                 .filter(orden -> tienePagoRegistrado(orden.getIdOrden()))
-                .map(orden -> {
-                    Pago pago = pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(orden.getIdOrden()).orElse(null);
-                    return new HistorialVentaResponse(
-                            orden.getIdOrden(),
-                            construirFolio(orden),
-                            orden.getFecha(),
-                            orden.getTipoOrden(),
-                            pago != null ? pago.getMetodo() : "N/A",
-                            orden.getTotal(),
-                            orden.getEstado()
-                    );
-                })
+                .map(this::mapHistorialVenta)
                 .toList();
 
         BigDecimal totalVentas = ventasPagadas.stream()
@@ -496,7 +739,7 @@ public class VentaService {
 
     @Transactional
     public CancelacionOrdenResponse cancelarOrden(Long idOrden, CancelarOrdenRequest request) {
-        Orden orden = ordenRepository.findById(idOrden)
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
         if ("CANCELADO".equalsIgnoreCase(orden.getEstado())) {
@@ -505,16 +748,22 @@ public class VentaService {
         if (tienePagoRegistrado(idOrden)) {
             throw new IllegalArgumentException("No puedes cancelar una orden ya pagada");
         }
+        if (!"POR_ACEPTAR".equalsIgnoreCase(orden.getEstado())) {
+            throw new IllegalArgumentException("Solo puedes cancelar una orden antes de que la cocina la acepte");
+        }
 
         String motivo = request == null || request.motivo() == null ? "" : request.motivo().trim();
         if (motivo.isBlank()) {
             throw new IllegalArgumentException("Debes indicar el motivo de cancelacion");
         }
 
+        revertirInventarioPorCancelacion(orden);
+
         orden.setEstado("CANCELADO");
         orden.setMotivoCancelacion(motivo);
         orden.setFechaCancelacion(LocalDateTime.now());
         ordenRepository.save(orden);
+        liberarMesaSiCorresponde(orden);
 
         return new CancelacionOrdenResponse(
                 orden.getIdOrden(),
@@ -527,7 +776,7 @@ public class VentaService {
 
     @Transactional
     public OrdenActivaResponse actualizarEstadoOrden(Long idOrden, ActualizarEstadoOrdenRequest request) {
-        Orden orden = ordenRepository.findById(idOrden)
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
         String nuevoEstado = normalizarEstadoPedido(request == null ? null : request.estado());
@@ -535,6 +784,7 @@ public class VentaService {
 
         orden.setEstado(nuevoEstado);
         ordenRepository.save(orden);
+        liberarMesaSiCorrespondeSiAplicaPorEstado(orden, nuevoEstado);
 
         OrdenDomicilio ordenDomicilio = orden.getOrdenDomicilio();
         if (ordenDomicilio != null) {
@@ -547,7 +797,7 @@ public class VentaService {
 
     @Transactional
     public OrdenActivaResponse actualizarEstadoDomicilio(Long idOrden, ActualizarEstadoDomicilioRequest request) {
-        Orden orden = ordenRepository.findById(idOrden)
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
         if (!"DOMICILIO".equalsIgnoreCase(orden.getTipoOrden())) {
@@ -570,7 +820,7 @@ public class VentaService {
 
     @Transactional
     public OrdenActivaResponse asignarRepartidor(Long idOrden, AsignarRepartidorRequest request) {
-        Orden orden = ordenRepository.findById(idOrden)
+        Orden orden = ordenRepository.findByIdConLock(idOrden)
                 .orElseThrow(() -> new IllegalArgumentException("Orden no encontrada"));
 
         if (!"DOMICILIO".equalsIgnoreCase(orden.getTipoOrden())) {
@@ -642,39 +892,45 @@ public class VentaService {
                 .toList();
     }
 
-    private void descontarInventario(Orden orden) {
+    private void aplicarDescuentoInventario(java.util.Map<Long, BigDecimal> requeridosPorInsumo, String referencia) {
+        // Iterar por id ascendente para mantener orden de lock estable entre transacciones concurrentes.
+        java.util.List<Long> ids = requeridosPorInsumo.keySet().stream().sorted().toList();
+
+        for (Long idInsumo : ids) {
+            BigDecimal requerido = requeridosPorInsumo.get(idInsumo);
+            Insumo insumo = insumoRepository.findByIdConLock(idInsumo)
+                    .orElseThrow(() -> new IllegalArgumentException("Insumo no encontrado: " + idInsumo));
+            if (insumo.getStockActual().compareTo(requerido) < 0) {
+                throw new IllegalArgumentException("Stock insuficiente para " + insumo.getNombre());
+            }
+            inventarioService.registrarSalidaVenta(insumo, requerido, referencia);
+        }
+    }
+
+    private void revertirInventarioPorCancelacion(Orden orden) {
         java.util.Map<Long, BigDecimal> requeridosPorInsumo = new java.util.HashMap<>();
 
         for (LineaOrden lineaOrden : orden.getLineasOrden()) {
             for (RecetaProducto recetaProducto : lineaOrden.getProducto().getReceta()) {
                 BigDecimal requerido = recetaProducto.getCantidad()
                         .multiply(BigDecimal.valueOf(lineaOrden.getCantidad()));
-                Long idInsumo = recetaProducto.getInsumo().getIdInsumo();
-                requeridosPorInsumo.merge(idInsumo, requerido, BigDecimal::add);
+                requeridosPorInsumo.merge(recetaProducto.getInsumo().getIdInsumo(), requerido, BigDecimal::add);
             }
             for (LineaOrdenMod lineaOrdenMod : lineaOrden.getModificadores()) {
                 for (RecetaModificador recetaModificador : lineaOrdenMod.getModificador().getReceta()) {
                     BigDecimal requerido = recetaModificador.getCantidad()
                             .multiply(BigDecimal.valueOf(lineaOrden.getCantidad()));
-                    Long idInsumo = recetaModificador.getInsumo().getIdInsumo();
-                    requeridosPorInsumo.merge(idInsumo, requerido, BigDecimal::add);
+                    requeridosPorInsumo.merge(recetaModificador.getInsumo().getIdInsumo(), requerido, BigDecimal::add);
                 }
             }
         }
 
-        for (java.util.Map.Entry<Long, BigDecimal> entry : requeridosPorInsumo.entrySet()) {
-            Insumo insumo = insumoRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new IllegalArgumentException("Insumo no encontrado: " + entry.getKey()));
-
-            if (insumo.getStockActual().compareTo(entry.getValue()) < 0) {
-                throw new IllegalArgumentException("Stock insuficiente para " + insumo.getNombre());
-            }
-        }
-
-        for (java.util.Map.Entry<Long, BigDecimal> entry : requeridosPorInsumo.entrySet()) {
-            Insumo insumo = insumoRepository.findById(entry.getKey())
-                    .orElseThrow(() -> new IllegalArgumentException("Insumo no encontrado: " + entry.getKey()));
-            inventarioService.registrarSalidaVenta(insumo, entry.getValue(), "Orden " + construirFolio(orden));
+        String referencia = "Cancelación orden " + construirFolio(orden);
+        java.util.List<Long> ids = requeridosPorInsumo.keySet().stream().sorted().toList();
+        for (Long idInsumo : ids) {
+            Insumo insumo = insumoRepository.findByIdConLock(idInsumo)
+                    .orElseThrow(() -> new IllegalArgumentException("Insumo no encontrado: " + idInsumo));
+            inventarioService.registrarReversionCancelacion(insumo, requeridosPorInsumo.get(idInsumo), referencia);
         }
     }
 
@@ -696,9 +952,9 @@ public class VentaService {
 
     private String normalizarEstadoDomicilio(String estadoEntrega) {
         String estado = estadoEntrega == null || estadoEntrega.trim().isBlank()
-                ? "PREPARANDO"
+                ? "POR_ACEPTAR"
                 : estadoEntrega.trim().toUpperCase();
-        if (!List.of("PREPARANDO", "LISTO", "EN_RUTA", "ENTREGADO").contains(estado)) {
+        if (!List.of("POR_ACEPTAR", "PREPARANDO", "LISTO", "EN_RUTA", "ENTREGADO").contains(estado)) {
             throw new IllegalArgumentException("Estado de domicilio invalido");
         }
         return estado;
@@ -706,7 +962,7 @@ public class VentaService {
 
     private String normalizarEstadoPedido(String estadoPedido) {
         String estado = estadoPedido == null || estadoPedido.trim().isBlank()
-                ? "PREPARANDO"
+                ? "POR_ACEPTAR"
                 : estadoPedido.trim().toUpperCase();
         if (!ESTADOS_PEDIDO.contains(estado)) {
             throw new IllegalArgumentException("Estado de pedido invalido");
@@ -721,7 +977,7 @@ public class VentaService {
 
         String nombreCliente = validarTexto(request.nombreCliente(), "El nombre del cliente es obligatorio");
         String direccion = validarTexto(request.direccion(), "La direccion del domicilio es obligatoria");
-        String telefono = validarTexto(request.telefono(), "El telefono del cliente es obligatorio");
+        String telefono = validarTelefono(request.telefono());
         BigDecimal costoEnvio = normalizarCostoEnvio(request.costoEnvio());
 
         OrdenDomicilio ordenDomicilio = new OrdenDomicilio();
@@ -730,7 +986,7 @@ public class VentaService {
         ordenDomicilio.setDireccion(direccion);
         ordenDomicilio.setTelefono(telefono);
         ordenDomicilio.setCostoEnvio(costoEnvio);
-        ordenDomicilio.setEstadoEntrega("PREPARANDO");
+        ordenDomicilio.setEstadoEntrega("POR_ACEPTAR");
         ordenDomicilioRepository.save(ordenDomicilio);
 
         return mapDomicilio(ordenDomicilio);
@@ -762,6 +1018,23 @@ public class VentaService {
                 orden.getEstado(),
                 tienePagoRegistrado(orden.getIdOrden()),
                 mapDomicilio(ordenDomicilio)
+        );
+    }
+
+    private OrdenSeguimientoResponse mapOrdenSeguimiento(Orden orden) {
+        return new OrdenSeguimientoResponse(
+                orden.getIdOrden(),
+                construirFolio(orden),
+                orden.getFecha(),
+                orden.getSesionCaja().getUsuario().getNombre(),
+                orden.getTipoOrden(),
+                orden.getTotal(),
+                orden.getLineasOrden().stream().map(LineaOrden::getCantidad).reduce(0, Integer::sum),
+                orden.getEstado(),
+                tienePagoRegistrado(orden.getIdOrden()),
+                orden.getMotivoCancelacion(),
+                orden.getMesa() != null ? orden.getMesa().getNumero() : null,
+                mapDomicilio(orden.getOrdenDomicilio())
         );
     }
 
@@ -801,10 +1074,145 @@ public class VentaService {
         return costoEnvio;
     }
 
+    private HistorialVentaResponse mapHistorialVenta(Orden orden) {
+        Pago pago = pagoRepository.findTopByOrdenIdOrdenOrderByIdPagoDesc(orden.getIdOrden()).orElse(null);
+        return new HistorialVentaResponse(
+                orden.getIdOrden(),
+                construirFolio(orden),
+                orden.getFecha(),
+                orden.getSesionCaja().getUsuario().getNombre(),
+                orden.getTipoOrden(),
+                pago != null ? pago.getMetodo() : "SIN_PAGO",
+                orden.getTotal(),
+                orden.getEstado(),
+                pago != null,
+                orden.getMotivoCancelacion()
+        );
+    }
+
+    private List<Orden> obtenerOrdenesParaHistorial(Long idNegocio, LocalDate fechaInicio, LocalDate fechaFin) {
+        if (fechaInicio == null && fechaFin == null) {
+            return ordenRepository.findBySesionCajaUsuarioNegocioIdNegocioOrderByFechaDesc(idNegocio);
+        }
+
+        LocalDate inicio = fechaInicio == null ? LocalDate.of(2000, 1, 1) : fechaInicio;
+        LocalDate fin = fechaFin == null ? LocalDate.now() : fechaFin;
+        if (fin.isBefore(inicio)) {
+            throw new IllegalArgumentException("El rango de fechas del historial es inválido");
+        }
+        return ordenRepository.findBySesionCajaUsuarioNegocioIdNegocioAndFechaBetweenOrderByFechaDesc(
+                idNegocio,
+                inicio.atStartOfDay(),
+                fin.atTime(LocalTime.MAX)
+        );
+    }
+
+    private String normalizarFiltro(String valor) {
+        if (valor == null || valor.trim().isBlank() || "TODOS".equalsIgnoreCase(valor.trim())) {
+            return null;
+        }
+        return valor.trim().toUpperCase();
+    }
+
+    private boolean filtrarPorEstado(HistorialVentaResponse item, String estado) {
+        return estado == null || estado.equalsIgnoreCase(item.estado());
+    }
+
+    private boolean filtrarPorMetodo(HistorialVentaResponse item, String metodoPago) {
+        return metodoPago == null || metodoPago.equalsIgnoreCase(item.metodoPago());
+    }
+
+    private Mesa resolverMesaParaOrden(Long idMesa, String tipoOrden, Long idNegocio) {
+        if (!"MOSTRADOR".equalsIgnoreCase(tipoOrden)) {
+            return null;
+        }
+        if (idMesa == null) {
+            return null;
+        }
+
+        Mesa mesa = mesaRepository.findById(idMesa)
+                .orElseThrow(() -> new IllegalArgumentException("Mesa no encontrada"));
+        if (!Objects.equals(mesa.getNegocio().getIdNegocio(), idNegocio)) {
+            throw new IllegalArgumentException("La mesa no pertenece al negocio");
+        }
+        if (!"LIBRE".equalsIgnoreCase(mesa.getEstado())) {
+            throw new IllegalArgumentException("La mesa seleccionada no está disponible");
+        }
+        return mesa;
+    }
+
+    private void ocuparMesaSiCorresponde(Orden orden) {
+        if (orden.getMesa() == null) {
+            return;
+        }
+        Mesa mesa = orden.getMesa();
+        mesa.setEstado("OCUPADA");
+        mesa.setReferenciaOrden(construirFolio(orden));
+        if (mesa.getMeseroAsignado() == null || mesa.getMeseroAsignado().isBlank()) {
+            mesa.setMeseroAsignado(orden.getSesionCaja().getUsuario().getNombre());
+        }
+        mesaRepository.save(mesa);
+    }
+
+    private void liberarMesaSiCorresponde(Orden orden) {
+        if (orden.getMesa() == null) {
+            return;
+        }
+        Mesa mesa = orden.getMesa();
+        mesa.setEstado("LIBRE");
+        mesa.setReferenciaOrden(null);
+        mesa.setMeseroAsignado(null);
+        mesaRepository.save(mesa);
+    }
+
+    private void liberarMesaSiCorrespondeSiAplicaPorEstado(Orden orden, String estado) {
+        if (orden.getMesa() == null) {
+            return;
+        }
+        if ("ENTREGADO".equalsIgnoreCase(estado) || "CANCELADO".equalsIgnoreCase(estado)) {
+            liberarMesaSiCorresponde(orden);
+        }
+    }
+
+    private BigDecimal calcularEfectivoDisponible(SesionCaja sesionCaja) {
+        List<MovimientoCaja> movimientos = movimientoCajaRepository.findBySesionCajaIdSesionCajaOrderByFechaDesc(sesionCaja.getIdSesionCaja());
+        BigDecimal ventasEfectivo = movimientos.stream()
+                .filter(movimiento -> "INGRESO_VENTA_EFECTIVO".equalsIgnoreCase(movimiento.getTipo())
+                        || "INGRESO_VENTA".equalsIgnoreCase(movimiento.getTipo()))
+                .map(MovimientoCaja::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal ingresosManuales = movimientos.stream()
+                .filter(movimiento -> "INGRESO_MANUAL".equalsIgnoreCase(movimiento.getTipo()))
+                .map(MovimientoCaja::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal retiros = movimientos.stream()
+                .filter(movimiento -> "RETIRO".equalsIgnoreCase(movimiento.getTipo())
+                        || "RETIRO_SEGURIDAD".equalsIgnoreCase(movimiento.getTipo())
+                        || "EGRESO".equalsIgnoreCase(movimiento.getTipo()))
+                .map(MovimientoCaja::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return sesionCaja.getFondoInicial()
+                .add(ventasEfectivo)
+                .add(ingresosManuales)
+                .subtract(retiros);
+    }
+
+    private String validarTelefono(String valor) {
+        String telefono = validarTexto(valor, "El telefono del cliente es obligatorio");
+        String soloDigitos = telefono.replaceAll("\\D", "");
+        if (soloDigitos.length() < 10 || soloDigitos.length() > 15) {
+            throw new IllegalArgumentException("El telefono debe tener entre 10 y 15 digitos");
+        }
+        return soloDigitos;
+    }
+
     private void validarCambioEstado(Orden orden, String nuevoEstado) {
         String estadoActual = normalizarEstadoPedido(orden.getEstado());
         if ("CANCELADO".equals(estadoActual)) {
             throw new IllegalArgumentException("La orden ya fue cancelada");
+        }
+        if ("REEMBOLSADO".equals(estadoActual)) {
+            throw new IllegalArgumentException("La orden ya fue reembolsada");
         }
         if ("CANCELADO".equals(nuevoEstado)) {
             throw new IllegalArgumentException("Usa la cancelacion de pedido para marcarlo como cancelado");
@@ -814,6 +1222,9 @@ public class VentaService {
         }
         if ("MOSTRADOR".equalsIgnoreCase(orden.getTipoOrden()) && "EN_RUTA".equals(nuevoEstado)) {
             throw new IllegalArgumentException("Una orden de mostrador no puede pasar a EN_RUTA");
+        }
+        if ("POR_ACEPTAR".equals(estadoActual) && !List.of("POR_ACEPTAR", "PREPARANDO").contains(nuevoEstado)) {
+            throw new IllegalArgumentException("La orden debe ser aceptada por cocina antes de avanzar");
         }
         if ("PREPARANDO".equals(estadoActual) && !List.of("PREPARANDO", "LISTO").contains(nuevoEstado)) {
             throw new IllegalArgumentException("El pedido debe pasar primero a LISTO");
@@ -826,9 +1237,6 @@ public class VentaService {
         }
         if ("LISTO".equals(estadoActual) && "ENTREGADO".equals(nuevoEstado) && "DOMICILIO".equalsIgnoreCase(orden.getTipoOrden())) {
             throw new IllegalArgumentException("El pedido debe pasar a EN_RUTA antes de ENTREGADO");
-        }
-        if ("DOMICILIO".equalsIgnoreCase(orden.getTipoOrden()) && "ENTREGADO".equals(nuevoEstado) && !tienePagoRegistrado(orden.getIdOrden())) {
-            throw new IllegalArgumentException("Debes cobrar el pedido antes de marcarlo como entregado");
         }
         if ("DOMICILIO".equalsIgnoreCase(orden.getTipoOrden()) && "EN_RUTA".equals(nuevoEstado)) {
             OrdenDomicilio domicilio = orden.getOrdenDomicilio();
